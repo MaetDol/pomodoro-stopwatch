@@ -25,6 +25,9 @@
 4. Run available checks. When hardware access is unavailable, attempt alternatives such as `arduino-cli compile --fqbn <board>` or document why testing was skipped.
 5. Document the changes and **always update this `AGENTS.md` at the end of your work**.
 
+## Recent updates
+- 2024-05-07: Timeout blink flow now polls encoder input to jump back into setting immediately on rotation.
+
 ## Pull request rules
 - **Title**: `[FEAT|FIX|REFACTOR|CHORE|DOCS|TEST] Description` written in Korean.
 - **Body language**: Always write the PR body in Korean.

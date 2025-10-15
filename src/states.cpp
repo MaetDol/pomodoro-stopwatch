@@ -96,14 +96,34 @@ void enterPaused(PomodoroState &st) {
   renderAll(st, true, st.pausedAtMs);
 }
 
+namespace {
+
+bool waitForEncoderDuringTimeout(PomodoroState &st, uint32_t durationMs) {
+  uint32_t start = millis();
+  while (millis() - start < durationMs) {
+    handleEncoderInput(st);
+    if (st.mode == Mode::SETTING) {
+      return true;
+    }
+    delay(1);
+  }
+  return false;
+}
+
+}  // namespace
+
 void enterTimeout(PomodoroState &st) {
   st.mode = Mode::TIMEOUT;
   for (uint8_t i = 0; i < TIMEOUT_BLINK_COUNT; ++i) {
     renderAll(st, true);
     showCenterText("0", 5);
-    delay(250);
+    if (waitForEncoderDuringTimeout(st, 250)) {
+      return;
+    }
     renderAll(st, true);
-    delay(250);
+    if (waitForEncoderDuringTimeout(st, 250)) {
+      return;
+    }
   }
   goToSleep(st);
 }
