@@ -156,8 +156,24 @@ struct PomodoroState {
   FloatTween settingTween;
 };
 
+struct DisplayDialCache {
+  bool wedgeValid = false;
+  float wedgeEndDeg = 0.0f;
+  float prevWedgeEndDeg = 0.0f;
+  uint16_t wedgeColor = COL_BG;
+
+  bool pointerValid = false;
+  float pointerAngleDeg = 0.0f;
+
+  bool blinkVisible = false;
+  float blinkAngleDeg = 0.0f;
+  int16_t blinkX = 0;
+  int16_t blinkY = 0;
+};
+
 struct DisplayState {
   bool isAwake = true;
+  DisplayDialCache dial;
 };
 
 extern EncoderState gEncoder;
@@ -218,6 +234,10 @@ void wakeDummy();
 void configureLightSleepWakeup();
 void tftEnterSleepSeqSoftOnly();
 void tftExitSleepSeqSoftOnly();
+
+inline void resetDisplayCache(DisplayState &disp) {
+  disp.dial = DisplayDialCache{};
+}
 
 inline void resetBlink(PomodoroState &st, uint32_t now) { st.blinkTs = now; st.blinkOn = false; }
 

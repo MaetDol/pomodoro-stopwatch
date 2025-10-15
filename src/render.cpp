@@ -1,8 +1,57 @@
 #include "pomodoro.h"
 
+namespace {
+
+constexpr float ANGLE_EPS = 0.25f;
+constexpr float POINTER_RESTORE_SPAN = 2.5f;
+constexpr int16_t WEDGE_RADIUS = R_OUT - 6;
+constexpr int16_t ARC_INNER = WEDGE_RADIUS - 2;
+constexpr int16_t ARC_OUTER = WEDGE_RADIUS;
+
+float normalizeAngle(float deg) {
+  while (deg < 0.0f) { deg += 360.0f; }
+  while (deg >= 360.0f) { deg -= 360.0f; }
+  return deg;
+}
+
+float hourScaledFraction(float seconds) {
+  return clampf(seconds / (60.0f * 60.1f), 0.0f, 1.0f);
+}
+
+void polarToScreen(float angleDeg, int16_t radius, int16_t &x, int16_t &y) {
+  float theta = deg2rad(90.0f - normalizeAngle(angleDeg));
+  x = CX + static_cast<int16_t>(lrintf(radius * cosf(theta)));
+  y = CY - static_cast<int16_t>(lrintf(radius * sinf(theta)));
+}
+
+void paintRingSegment(float fromDeg, float toDeg, uint16_t fillColor, uint16_t arcColor, float step = 1.0f) {
+  float sweep = toDeg - fromDeg;
+  if (sweep < 0.0f) {
+    sweep += 360.0f;
+  }
+  if (sweep <= ANGLE_EPS) {
+    return;
+  }
+
+  float start = normalizeAngle(fromDeg);
+  float target = start + sweep;
+  fillSector(tft, CX, CY, WEDGE_RADIUS, start, target, fillColor, step);
+  fillArc(tft, CX, CY, ARC_INNER, ARC_OUTER, start, target, arcColor, step);
+}
+
+void clearDialArea() {
+  paintRingSegment(0.0f, 360.0f, COL_BG, COL_BG, 4.0f);
+}
+
+}  // namespace
+
 void renderAll(PomodoroState &st, bool forceBg, uint32_t now) {
   if (now == UINT32_MAX) {
     now = millis();
+  }
+
+  if (forceBg) {
+    resetDisplayCache(gDisplay);
   }
 
   drawDialBackground(forceBg);
@@ -65,20 +114,30 @@ void drawRemainingWedge(float remainingSec, float totalSec, bool paused) {
     return;
   }
 
-  float frac = clampf(remainingSec / (60 * 60.1f), 0.0f, 1.0f);
-  float sweep = 360.0f * frac;
-  uint16_t col = paused ? COL_LIGHTRED : COL_RED;
+  DisplayDialCache &cache = gDisplay.dial;
+  cache.prevWedgeEndDeg = cache.wedgeEndDeg;
 
-  float startDeg = 0.0f;
-  float endDeg = startDeg + sweep;
+  float frac = hourScaledFraction(remainingSec);
+  float newEnd = 360.0f * frac;
+  uint16_t color = paused ? COL_LIGHTRED : COL_RED;
+  bool colorChanged = !cache.wedgeValid || cache.wedgeColor != color;
 
-  // 배경 정리 후 새 호를 그려 잔상 제거
-  fillSector(tft, CX, CY, R_OUT - 6, 0.0f, 360.0f, COL_BG, 4.0f);
-  fillArc(tft, CX, CY, R_OUT - 6 - 2, R_OUT - 6, 0.0f, 360.0f, COL_BG, 4.0f);
+  if (!cache.wedgeValid || colorChanged) {
+    clearDialArea();
+    if (newEnd > ANGLE_EPS) {
+      paintRingSegment(0.0f, newEnd, color, COL_RED_DARK);
+    }
+  } else {
+    if (newEnd + ANGLE_EPS < cache.wedgeEndDeg) {
+      paintRingSegment(newEnd, cache.wedgeEndDeg, COL_BG, COL_BG);
+    } else if (newEnd > cache.wedgeEndDeg + ANGLE_EPS) {
+      paintRingSegment(cache.wedgeEndDeg, newEnd, color, COL_RED_DARK);
+    }
+  }
 
-  fillSector(tft, CX, CY, R_OUT - 6, startDeg, endDeg, col, 1.0f);
-  // 빨간영역 호 그림자
-  fillArc(tft, CX, CY, R_OUT - 6 - 2, R_OUT - 6, startDeg, endDeg, COL_RED_DARK, 1.0f);
+  cache.wedgeValid = true;
+  cache.wedgeEndDeg = newEnd;
+  cache.wedgeColor = color;
 }
 
 void drawMinuteHand(float remainingSec, float totalSec) {
@@ -86,19 +145,28 @@ void drawMinuteHand(float remainingSec, float totalSec) {
     return;
   }
 
-  float frac = clampf(remainingSec / (60 * 60.1f), 0.0f, 1.0f);
+  DisplayDialCache &cache = gDisplay.dial;
+  float frac = hourScaledFraction(remainingSec);
   float angle = 360.0f * frac;
 
-  int16_t shadowX = CX + static_cast<int16_t>(cos(deg2rad(angle - 90 - 1)) * (R_OUT - 6));
-  int16_t shadowY = CY + static_cast<int16_t>(sin(deg2rad(angle - 90 - 1)) * (R_OUT - 6));
+  if (cache.pointerValid) {
+    float start = cache.pointerAngleDeg - POINTER_RESTORE_SPAN;
+    if (cache.prevWedgeEndDeg > cache.wedgeEndDeg + ANGLE_EPS) {
+      paintRingSegment(start, cache.pointerAngleDeg, COL_BG, COL_BG);
+    } else {
+      paintRingSegment(start, cache.pointerAngleDeg, cache.wedgeColor, COL_RED_DARK);
+    }
+  }
 
-  // 분침 그림자
+  int16_t shadowX, shadowY;
+  polarToScreen(angle - 1.0f, WEDGE_RADIUS, shadowX, shadowY);
   drawThickLine(tft, CX, CY, shadowX, shadowY, COL_RED_DARK, 3);
 
-  // 이전거 지우기
-  fillSector(tft, CX, CY, R_OUT - 6, angle, angle + 10, COL_BG, 1.0f);
-
+  fillSector(tft, CX, CY, WEDGE_RADIUS, angle, angle + 10.0f, COL_BG, 1.0f);
   tft.fillCircle(CX, CY, 6, COL_RED);
+
+  cache.pointerValid = true;
+  cache.pointerAngleDeg = angle;
 }
 
 void drawThickLine(Adafruit_GFX &gfx, int16_t x0, int16_t y0, int16_t x1, int16_t y1, uint16_t color, uint8_t thickness) {
@@ -128,16 +196,43 @@ void drawThickLine(Adafruit_GFX &gfx, int16_t x0, int16_t y0, int16_t x1, int16_
 }
 
 void drawBlinkingTip(float remainingSec, float totalSec, bool on) {
+  DisplayDialCache &cache = gDisplay.dial;
+
+  auto clearPrevious = [&]() {
+    if (!cache.blinkVisible) {
+      return;
+    }
+    uint16_t base = (cache.blinkAngleDeg <= cache.wedgeEndDeg + ANGLE_EPS)
+                        ? cache.wedgeColor
+                        : COL_BG;
+    tft.fillCircle(cache.blinkX, cache.blinkY, 5, base);
+    cache.blinkVisible = false;
+  };
+
   if (!on || totalSec <= 0.0f) {
+    clearPrevious();
     return;
   }
 
   float frac = clampf(remainingSec / totalSec, 0.0f, 1.0f);
-  float angle = 270.0f + 360.0f * frac;
-  float rad = deg2rad(angle);
-  int16_t x = CX + static_cast<int16_t>(cos(rad) * (R_OUT - 2));
-  int16_t y = CY + static_cast<int16_t>(sin(rad) * (R_OUT - 2));
+  float rawAngle = 270.0f + 360.0f * frac;
+  float screenAngle = normalizeAngle(rawAngle - 270.0f);
+
+  if (cache.blinkVisible && fabsf(screenAngle - cache.blinkAngleDeg) <= ANGLE_EPS) {
+    return;
+  }
+
+  clearPrevious();
+
+  float rad = deg2rad(rawAngle);
+  int16_t x = CX + static_cast<int16_t>(lrintf(cosf(rad) * (R_OUT - 2)));
+  int16_t y = CY + static_cast<int16_t>(lrintf(sinf(rad) * (R_OUT - 2)));
   tft.fillCircle(x, y, 5, COL_LIGHTRED);
+
+  cache.blinkVisible = true;
+  cache.blinkX = x;
+  cache.blinkY = y;
+  cache.blinkAngleDeg = screenAngle;
 }
 
 void showCenterText(const String &s, uint8_t textSize, uint16_t color, uint16_t bg) {
