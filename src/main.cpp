@@ -6,7 +6,7 @@
   - While paused: lighter red, arc tip blinks, remaining minutes shown at center
   - Idle after pause 3 min → sleep
   - Timeout (0) → blink "0" 5x → sleep
-  - Setting flow: after last encoder movement, wait 0.5s → show (value-1) 0.5s → hide number → start timer
+  - Setting flow: rotating immediately restarts the timer, shows minutes for 2s, and draws the wedge with a 0.3s ease-out
 
   Board: ESP32-S3 (3.3V)
   Libraries (Library Manager):

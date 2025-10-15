@@ -56,13 +56,12 @@ constexpr uint16_t COL_RED_DARK  = 0xe2a8;
 constexpr uint16_t COL_LIGHTRED  = 0xFBE0;
 constexpr uint16_t COL_WHITE     = 0xFFFF;
 
-constexpr uint32_t PREROLL_DELAY_MS       = 500;
-constexpr uint32_t PREROLL_HIDE_MS        = 500;
 constexpr uint32_t RUN_REPAINT_MS         = 1000;
 constexpr uint32_t PAUSE_BLINK_MS         = 500;
 constexpr uint32_t PAUSE_SLEEP_DELAY_MS   = 180000UL;
 constexpr uint32_t ENCODER_THROTTLE_MS    = 500;
 constexpr uint32_t SETTING_ANIM_DURATION_MS = 300;
+constexpr uint32_t CENTER_DISPLAY_MS      = 2000;
 constexpr uint8_t  TIMEOUT_BLINK_COUNT    = 5;
 constexpr uint8_t  OPTION_COUNT           = 4;
 constexpr uint8_t  CENTER_CLEAR_PADDING   = 6;
@@ -79,7 +78,7 @@ struct PomodoroState;
 
 inline void resetBlink(PomodoroState &st, uint32_t now);
 
-enum class Mode { SETTING, PREROLL_SHOW, PREROLL_HIDE, RUNNING, PAUSED, TIMEOUT, SLEEPING };
+enum class Mode { SETTING, RUNNING, PAUSED, TIMEOUT, SLEEPING };
 
 struct EncoderState {
   volatile int8_t steps = 0;
@@ -154,6 +153,9 @@ struct PomodoroState {
   float settingFracCurrent = 0.0f;
   float settingFracTarget = 0.0f;
   FloatTween settingTween;
+  uint32_t centerDisplayUntilMs = 0;
+  uint8_t centerDisplayValue = 0;
+  bool pendingTimeout = false;
 };
 
 struct DisplayDialCache {
@@ -195,9 +197,6 @@ void handleButtonInput(PomodoroState &st);
 void updateStateMachine(PomodoroState &st, uint32_t now);
 
 void enterSetting(PomodoroState &st);
-void enterPreRollShow(PomodoroState &st);
-void enterPreRollHide(PomodoroState &st);
-void startRunFromSelection(PomodoroState &st);
 void resumeRun(PomodoroState &st);
 void enterPaused(PomodoroState &st);
 void enterTimeout(PomodoroState &st);

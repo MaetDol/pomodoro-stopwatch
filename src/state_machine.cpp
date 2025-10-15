@@ -8,21 +8,24 @@ void updateStateMachine(PomodoroState &st, uint32_t now) {
       }
       if (st.settingTween.isActive()) {
         renderAll(st, false, now);
-        showCenterText(String(currentMinutes(st)), 4);
       }
-      if (now - st.lastInputMs >= PREROLL_DELAY_MS) {
-        enterPreRollShow(st);
+      if (now < st.centerDisplayUntilMs) {
+        showCenterText(String(st.centerDisplayValue), 4);
+        break;
       }
-      break;
-    case Mode::PREROLL_SHOW:
-      if (now - st.stateTs >= PREROLL_HIDE_MS) {
-        enterPreRollHide(st);
+
+      if (st.pendingTimeout) {
+        enterTimeout(st);
+        break;
       }
-      break;
-    case Mode::PREROLL_HIDE:
-      if (now - st.stateTs >= PREROLL_HIDE_MS) {
-        startRunFromSelection(st);
-      }
+
+      st.centerDisplayUntilMs = 0;
+      st.centerDisplayValue = 0;
+      st.pendingTimeout = false;
+      st.mode = Mode::RUNNING;
+      st.stateTs = now;
+      st.blinkTs = now;
+      renderAll(st, true, now);
       break;
     case Mode::RUNNING: {
       if (st.runDurationMs == 0) {

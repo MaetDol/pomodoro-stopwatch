@@ -37,6 +37,7 @@ void handleButtonInput(PomodoroState &st) {
   }
 
   switch (st.mode) {
+    case Mode::SETTING:
     case Mode::RUNNING:
       enterPaused(st);
       break;
