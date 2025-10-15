@@ -1,0 +1,37 @@
+name: Release Bundle
+
+on:
+  push:
+    branches:
+      - release
+
+jobs:
+  bundle-and-release:
+    name: Build and Publish Amalgamated Sketch
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Bundle firmware
+        run: node bundler.js src/main.cpp -o pomodoro.ino
+
+      - name: Publish release asset
+        uses: ncipollo/release-action@v1
+        with:
+          tag: release-${{ github.run_number }}
+          name: Pomodoro bundle ${{ github.run_number }}
+          body: |
+            자동 생성된 번들 스케치입니다.
+            - 커밋: ${{ github.sha }}
+            - 브랜치: ${{ github.ref_name }}
+          artifacts: pomodoro.ino
+          artifactContentType: text/plain
+          allowUpdates: true
+          token: ${{ secrets.GITHUB_TOKEN }}
