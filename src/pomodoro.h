@@ -22,16 +22,16 @@
 #endif
 
 // TFT (SPI)
-#define TFT_CS    2
-#define TFT_DC    1
-#define TFT_RST   3   // or set to -1 and tie RESET high
-#define TFT_SDA   4
-#define TFT_SCL   5
+#define TFT_CS    11 // 배선 연결시 CS 와 DC 를 바꿀 것
+#define TFT_DC    10 // 왜인지 표기가 잘못되어 있는 듯;
+#define TFT_RST   9   // or set to -1 and tie RESET high
+#define TFT_SDA   12
+#define TFT_SCL   13
 
 // ROTARY ENCODER (A/B) + BUTTON (PUSH)
-#define ENC_A     9
-#define ENC_B     10
-#define ENC_BTN   11
+#define ENC_A     6
+#define ENC_B     7
+#define ENC_BTN   5
 
 constexpr uint16_t rgb565(uint8_t r, uint8_t g, uint8_t b) {
   return ((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3);
