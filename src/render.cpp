@@ -57,15 +57,11 @@ void renderAll(PomodoroState &st, bool forceBg, uint32_t now) {
   drawDialBackground(forceBg);
 
   switch (st.mode) {
-    case Mode::SETTING:
-    case Mode::PREROLL_SHOW:
-    case Mode::PREROLL_HIDE: {
+    case Mode::SETTING: {
       float minutes = static_cast<float>(currentMinutes(st));
       float totalSeconds = (minutes == 0.0f) ? 60.0f : minutes * 60.0f;
       float frac = st.settingFracTarget;
-      if (st.mode == Mode::SETTING) {
-        frac = st.settingTween.sample(now);
-      }
+      frac = st.settingTween.sample(now);
       frac = clampf(frac, 0.0f, 1.0f);
       st.settingFracCurrent = frac;
       float remainingSeconds = frac * (60.0f * 60.0f);

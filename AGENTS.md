@@ -27,6 +27,7 @@
 
 ## Recent updates
 - 2024-05-07: Timeout blink flow now polls encoder input to jump back into setting immediately on rotation.
+- 2024-05-09: Encoder rotation now starts the run immediately with a 2s center readout and 0.3s ease-out wedge animation.
 
 ## Pull request rules
 - **Title**: `[FEAT|FIX|REFACTOR|CHORE|DOCS|TEST] Description` written in Korean.

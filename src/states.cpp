@@ -1,76 +1,53 @@
 #include "pomodoro.h"
 
+namespace {
+
+void clearCenterDisplay(PomodoroState &st) {
+  st.centerDisplayUntilMs = 0;
+  st.centerDisplayValue = 0;
+  st.pendingTimeout = false;
+}
+
+void startRunForMinutes(PomodoroState &st, uint8_t minutes, uint32_t now) {
+  st.runDurationMs = static_cast<uint32_t>(minutes) * 60UL * 1000UL;
+  st.runStartMs = now;
+  st.pausedAtMs = 0;
+  resetBlink(st, now);
+}
+
+}  // namespace
+
 void enterSetting(PomodoroState &st) {
   uint32_t now = millis();
-  bool wasSetting = (st.mode == Mode::SETTING);
-
-  if (wasSetting) {
-    st.settingFracCurrent = st.settingTween.sample(now);
-  }
 
   st.mode = Mode::SETTING;
   st.stateTs = now;
   st.lastInputMs = now;
+  st.lastEncoderMs = now;
   resetBlink(st, now);
 
-  float minutes = static_cast<float>(currentMinutes(st));
-  float seconds = (minutes == 0.0f) ? 60.0f : minutes * 60.0f;
-  float targetFrac = clampf(seconds / (60.0f * 60.0f), 0.0f, 1.0f);
-  st.settingFracTarget = targetFrac;
-
-  if (!wasSetting) {
-    st.settingFracCurrent = targetFrac;
-    st.settingTween.snapTo(targetFrac);
-  } else {
-    float current = st.settingFracCurrent;
-    if (fabsf(targetFrac - current) <= SETTING_ANIM_EPSILON) {
-      st.settingFracCurrent = targetFrac;
-      st.settingTween.snapTo(targetFrac);
-    } else {
-      st.settingTween.startTween(current, targetFrac, now, SETTING_ANIM_DURATION_MS, easeOut);
-    }
-  }
-
-  renderAll(st, !wasSetting, now);
-  showCenterText(String(currentMinutes(st)), 4);
-}
-
-void enterPreRollShow(PomodoroState &st) {
-  st.mode = Mode::PREROLL_SHOW;
-  st.stateTs = millis();
-  resetBlink(st, st.stateTs);
-  st.settingTween.snapTo(st.settingFracTarget);
-  st.settingFracCurrent = st.settingFracTarget;
-  renderAll(st, true, st.stateTs);
-
-  uint8_t val = currentMinutes(st);
-  uint8_t showVal = (val == 0) ? 0 : (val - 1);
-  showCenterText(String(showVal), 4);
-}
-
-void enterPreRollHide(PomodoroState &st) {
-  st.mode = Mode::PREROLL_HIDE;
-  st.stateTs = millis();
-  resetBlink(st, st.stateTs);
-  st.settingTween.snapTo(st.settingFracTarget);
-  st.settingFracCurrent = st.settingFracTarget;
-  renderAll(st, true, st.stateTs);
-}
-
-void startRunFromSelection(PomodoroState &st) {
   uint8_t minutes = currentMinutes(st);
-  if (minutes == 0) {
-    enterTimeout(st);
-    return;
+  float seconds = static_cast<float>(minutes) * 60.0f;
+  float targetFrac = clampf(seconds / (60.0f * 60.0f), 0.0f, 1.0f);
+
+  st.settingFracTarget = targetFrac;
+  st.settingFracCurrent = 0.0f;
+  st.settingTween.startTween(0.0f, targetFrac, now, SETTING_ANIM_DURATION_MS, easeOut);
+
+  st.centerDisplayValue = minutes;
+  st.centerDisplayUntilMs = now + CENTER_DISPLAY_MS;
+  st.pendingTimeout = (minutes == 0);
+
+  if (!st.pendingTimeout) {
+    startRunForMinutes(st, minutes, now);
+  } else {
+    st.runDurationMs = 0;
+    st.runStartMs = now;
+    st.pausedAtMs = 0;
   }
 
-  st.mode = Mode::RUNNING;
-  st.stateTs = millis();
-  st.runDurationMs = static_cast<uint32_t>(minutes) * 60UL * 1000UL;
-  st.runStartMs = st.stateTs;
-  st.pausedAtMs = 0;
-  resetBlink(st, st.stateTs);
-  renderAll(st, true, st.stateTs);
+  renderAll(st, true, now);
+  showCenterText(String(st.centerDisplayValue), 4);
 }
 
 void resumeRun(PomodoroState &st) {
@@ -83,11 +60,13 @@ void resumeRun(PomodoroState &st) {
   st.pausedAtMs = 0;
   st.mode = Mode::RUNNING;
   st.stateTs = now;
+  clearCenterDisplay(st);
   resetBlink(st, now);
   renderAll(st, true, now);
 }
 
 void enterPaused(PomodoroState &st) {
+  clearCenterDisplay(st);
   st.mode = Mode::PAUSED;
   st.pausedAtMs = millis();
   st.stateTs = st.pausedAtMs;
@@ -113,6 +92,7 @@ bool waitForEncoderDuringTimeout(PomodoroState &st, uint32_t durationMs) {
 }  // namespace
 
 void enterTimeout(PomodoroState &st) {
+  clearCenterDisplay(st);
   st.mode = Mode::TIMEOUT;
   for (uint8_t i = 0; i < TIMEOUT_BLINK_COUNT; ++i) {
     renderAll(st, true);
@@ -140,6 +120,7 @@ void goToSleep(PomodoroState &st) {
     Serial.println(err);
   }
   tftExitSleepSeqSoftOnly();
+  clearCenterDisplay(st);
   enterSetting(st);
 }
 
