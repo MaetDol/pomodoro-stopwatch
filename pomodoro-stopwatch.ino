@@ -18,7 +18,7 @@
   Pin mapping below can be edited to your wiring.
 */
 
-#include "pomodoro.h"
+#include "src/pomodoro.h"
 
 Adafruit_GC9A01A tft(&SPI, TFT_CS, TFT_DC, TFT_RST);
 EncoderState gEncoder;

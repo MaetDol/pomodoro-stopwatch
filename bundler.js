@@ -37,7 +37,7 @@ function parseArgs(argv) {
     else positional.push(a);
   }
   if (positional.length < 1) {
-    return { error: "엔트리 파일을 지정해주세요 (예: src/main.cpp)" };
+    return { error: "엔트리 파일을 지정해주세요 (예: pomodoro-stopwatch.ino)" };
   }
   const entry = positional[0];
   const includeDirs = positional.slice(1);
