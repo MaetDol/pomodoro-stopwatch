@@ -28,6 +28,7 @@
 #include <Adafruit_GC9A01A.h>
 #include <Bounce2.h>
 #include <limits.h>
+#include <math.h>
 
 #if defined(ARDUINO_ARCH_ESP32)
   #include <esp_sleep.h>
@@ -83,11 +84,13 @@ constexpr uint32_t RUN_REPAINT_MS         = 1000;
 constexpr uint32_t PAUSE_BLINK_MS         = 500;
 constexpr uint32_t PAUSE_SLEEP_DELAY_MS   = 180000UL;
 constexpr uint32_t ENCODER_THROTTLE_MS    = 500;
+constexpr uint32_t SETTING_ANIM_DURATION_MS = 300;
 constexpr uint8_t  TIMEOUT_BLINK_COUNT    = 5;
 constexpr uint8_t  OPTION_COUNT           = 4;
 constexpr uint8_t  CENTER_CLEAR_PADDING   = 6;
 
 constexpr uint8_t OPTIONS[OPTION_COUNT] = {15, 30, 60, 0};
+constexpr float   SETTING_ANIM_EPSILON    = 1e-4f;
 
 enum class Mode { SETTING, PREROLL_SHOW, PREROLL_HIDE, RUNNING, PAUSED, TIMEOUT, SLEEPING };
 
@@ -95,6 +98,59 @@ struct EncoderState {
   volatile int8_t steps = 0;
   volatile uint8_t prev = 0;
   volatile int8_t quarter = 0;
+};
+
+float easeLinear(float t);
+
+using EaseFn = float (*)(float);
+
+struct FloatTween {
+  float from = 0.0f;
+  float to = 0.0f;
+  uint32_t start = 0;
+  uint32_t duration = 0;
+  EaseFn ease = easeLinear;
+  bool active = false;
+
+  void snapTo(float value) {
+    from = to = value;
+    start = 0;
+    duration = 0;
+    ease = easeLinear;
+    active = false;
+  }
+
+  void startTween(float fromValue, float toValue, uint32_t startMs, uint32_t durationMs, EaseFn easeFn = nullptr) {
+    from = fromValue;
+    to = toValue;
+    start = startMs;
+    duration = durationMs;
+    ease = easeFn ? easeFn : easeLinear;
+    active = (durationMs > 0) && (fabsf(toValue - fromValue) > SETTING_ANIM_EPSILON);
+    if (!active) {
+      snapTo(toValue);
+    }
+  }
+
+  float sample(uint32_t nowMs) {
+    if (!active) {
+      return to;
+    }
+
+    uint32_t elapsed = (nowMs >= start) ? (nowMs - start) : 0;
+    float t = (duration == 0) ? 1.0f : clampf(static_cast<float>(elapsed) / static_cast<float>(duration), 0.0f, 1.0f);
+    float eased = ease ? ease(t) : t;
+    float value = lerpf(from, to, eased);
+
+    if (t >= 1.0f - SETTING_ANIM_EPSILON || elapsed >= duration) {
+      snapTo(to);
+      value = to;
+    }
+
+    return value;
+  }
+
+  bool isActive() const { return active; }
 };
 
 struct PomodoroState {
@@ -108,6 +164,9 @@ struct PomodoroState {
   bool blinkOn = false;             // 깜박임 UI 표현에 사용할 토글 플래그
   uint32_t blinkTs = 0;             // 마지막으로 깜박임/화면 갱신을 수행한 시각 (millis)
   uint32_t lastEncoderMs = 0;       // 마지막으로 인코더 입력을 반영한 시각 (millis)
+  float settingFracCurrent = 0.0f;  // 설정 화면에서 현재 표시 중인 호 비율
+  float settingFracTarget = 0.0f;   // 설정 화면에서 목표 호 비율
+  FloatTween settingTween;          // 설정 화면 애니메이션 트윈
 };
 
 struct DisplayState {
@@ -123,6 +182,13 @@ static Bounce btnDebounce;
 static inline float deg2rad(float d) { return d * (PI / 180.0f); }
 static inline float clampf(float v, float a, float b) { return v < a ? a : (v > b ? b : v); }
 static inline void resetBlink(PomodoroState &st, uint32_t now) { st.blinkTs = now; st.blinkOn = false; }
+static inline float lerpf(float a, float b, float t) { return a + (b - a) * t; }
+
+float easeIn(float t);
+float easeOut(float t);
+float easeInOut(float t);
+float cubicBezierValue(float t, float p0, float p1, float p2, float p3);
+float cubicBezierEase(float x, float x1, float y1, float x2, float y2);
 
 uint8_t currentMinutes(const PomodoroState &st);
 uint32_t computeElapsedMs(const PomodoroState &st, uint32_t now);
@@ -310,6 +376,10 @@ void updateStateMachine(PomodoroState &st, uint32_t now) {
       if (!gDisplay.isAwake) {
         tftExitSleepSeqSoftOnly();
       }
+      if (st.settingTween.isActive()) {
+        renderAll(st, false, now);
+        showCenterText(String(currentMinutes(st)), 4);
+      }
       if (now - st.lastInputMs >= PREROLL_DELAY_MS) {
         enterPreRollShow(st);
       }
@@ -356,11 +426,37 @@ void updateStateMachine(PomodoroState &st, uint32_t now) {
 
 /************ STATE ENTER HELPERS ************/
 void enterSetting(PomodoroState &st) {
+  uint32_t now = millis();
+  bool wasSetting = (st.mode == Mode::SETTING);
+
+  if (wasSetting) {
+    st.settingFracCurrent = st.settingTween.sample(now);
+  }
+
   st.mode = Mode::SETTING;
-  st.stateTs = millis();
-  st.lastInputMs = st.stateTs;
-  resetBlink(st, st.stateTs);
-  // renderAll(st, true, st.stateTs);
+  st.stateTs = now;
+  st.lastInputMs = now;
+  resetBlink(st, now);
+
+  float minutes = static_cast<float>(currentMinutes(st));
+  float seconds = (minutes == 0.0f) ? 60.0f : minutes * 60.0f;
+  float targetFrac = clampf(seconds / (60.0f * 60.0f), 0.0f, 1.0f);
+  st.settingFracTarget = targetFrac;
+
+  if (!wasSetting) {
+    st.settingFracCurrent = targetFrac;
+    st.settingTween.snapTo(targetFrac);
+  } else {
+    float current = st.settingFracCurrent;
+    if (fabsf(targetFrac - current) <= SETTING_ANIM_EPSILON) {
+      st.settingFracCurrent = targetFrac;
+      st.settingTween.snapTo(targetFrac);
+    } else {
+      st.settingTween.startTween(current, targetFrac, now, SETTING_ANIM_DURATION_MS, easeOut);
+    }
+  }
+
+  renderAll(st, !wasSetting, now);
   showCenterText(String(currentMinutes(st)), 4);
 }
 
@@ -368,6 +464,8 @@ void enterPreRollShow(PomodoroState &st) {
   st.mode = Mode::PREROLL_SHOW;
   st.stateTs = millis();
   resetBlink(st, st.stateTs);
+  st.settingTween.snapTo(st.settingFracTarget);
+  st.settingFracCurrent = st.settingFracTarget;
   renderAll(st, true, st.stateTs);
 
   uint8_t val = currentMinutes(st);
@@ -379,6 +477,8 @@ void enterPreRollHide(PomodoroState &st) {
   st.mode = Mode::PREROLL_HIDE;
   st.stateTs = millis();
   resetBlink(st, st.stateTs);
+  st.settingTween.snapTo(st.settingFracTarget);
+  st.settingFracCurrent = st.settingFracTarget;
   renderAll(st, true, st.stateTs);
 }
 
@@ -461,11 +561,17 @@ void renderAll(PomodoroState &st, bool forceBg, uint32_t now) {
     case Mode::SETTING:
     case Mode::PREROLL_SHOW:
     case Mode::PREROLL_HIDE: {
-      float total = static_cast<float>(currentMinutes(st));
-      total = (total == 0.0f) ? 60.0f : total * 60.0f;
-      float remaining = total;
-      drawRemainingWedge(remaining, total, false);
-      drawMinuteHand(remaining, total);
+      float minutes = static_cast<float>(currentMinutes(st));
+      float totalSeconds = (minutes == 0.0f) ? 60.0f : minutes * 60.0f;
+      float frac = st.settingFracTarget;
+      if (st.mode == Mode::SETTING) {
+        frac = st.settingTween.sample(now);
+      }
+      frac = clampf(frac, 0.0f, 1.0f);
+      st.settingFracCurrent = frac;
+      float remainingSeconds = frac * (60.0f * 60.0f);
+      drawRemainingWedge(remainingSeconds, totalSeconds, false);
+      drawMinuteHand(remainingSeconds, totalSeconds);
       break;
     }
     case Mode::RUNNING:
@@ -515,6 +621,10 @@ void drawRemainingWedge(float remainingSec, float totalSec, bool paused) {
 
   float startDeg = 0.0f;
   float endDeg = startDeg + sweep;
+
+  // 배경 정리 후 새 호를 그려 잔상 제거
+  fillSector(tft, CX, CY, R_OUT - 6, 0.0f, 360.0f, COL_BG, 4.0f);
+  fillArc(tft, CX, CY, R_OUT - 6 - 2, R_OUT - 6, 0.0f, 360.0f, COL_BG, 4.0f);
 
   fillSector(tft, CX, CY, R_OUT - 6, startDeg, endDeg, col, 1.0f);
   // 빨간영역 호 그림자
@@ -604,6 +714,70 @@ void drawCenterText(const String &s) {
   int16_t y = CY - static_cast<int16_t>(h) / 2;
   tft.fillCircle(CX, CY, (w > h ? w : h) / 1.2f + CENTER_CLEAR_PADDING, COL_BG);
   tft.setCursor(x, y);
+}
+
+float easeLinear(float t) {
+  return clampf(t, 0.0f, 1.0f);
+}
+
+float cubicBezierValue(float t, float p0, float p1, float p2, float p3) {
+  float u = 1.0f - t;
+  return (u * u * u * p0) + (3.0f * u * u * t * p1) + (3.0f * u * t * t * p2) + (t * t * t * p3);
+}
+
+static float cubicBezierDerivative(float t, float p0, float p1, float p2, float p3) {
+  float u = 1.0f - t;
+  return 3.0f * u * u * (p1 - p0) + 6.0f * u * t * (p2 - p1) + 3.0f * t * t * (p3 - p2);
+}
+
+float cubicBezierEase(float x, float x1, float y1, float x2, float y2) {
+  x = clampf(x, 0.0f, 1.0f);
+  float u = x;
+
+  for (uint8_t i = 0; i < 5; ++i) {
+    float current = cubicBezierValue(u, 0.0f, x1, x2, 1.0f) - x;
+    float deriv = cubicBezierDerivative(u, 0.0f, x1, x2, 1.0f);
+    if (fabsf(current) < 1e-5f) {
+      break;
+    }
+    if (fabsf(deriv) < 1e-5f) {
+      // 도함수가 너무 작으면 뉴턴 방법을 중단
+      break;
+    }
+    u -= current / deriv;
+    u = clampf(u, 0.0f, 1.0f);
+  }
+
+  float solvedX = cubicBezierValue(u, 0.0f, x1, x2, 1.0f);
+  if (fabsf(solvedX - x) > 1e-3f) {
+    float lo = 0.0f;
+    float hi = 1.0f;
+    u = x;
+    for (uint8_t i = 0; i < 6; ++i) {
+      float mid = (lo + hi) * 0.5f;
+      float midX = cubicBezierValue(mid, 0.0f, x1, x2, 1.0f);
+      if (midX < x) {
+        lo = mid;
+      } else {
+        hi = mid;
+      }
+      u = mid;
+    }
+  }
+
+  return clampf(cubicBezierValue(u, 0.0f, y1, y2, 1.0f), 0.0f, 1.0f);
+}
+
+float easeIn(float t) {
+  return cubicBezierEase(t, 0.42f, 0.0f, 1.0f, 1.0f);
+}
+
+float easeOut(float t) {
+  return cubicBezierEase(t, 0.0f, 0.0f, 0.58f, 1.0f);
+}
+
+float easeInOut(float t) {
+  return cubicBezierEase(t, 0.42f, 0.0f, 0.58f, 1.0f);
 }
 
 void fillArc(Adafruit_GFX& gfx,
