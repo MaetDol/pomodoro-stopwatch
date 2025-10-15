@@ -80,9 +80,7 @@ void renderAll(PomodoroState &st, bool forceBg, uint32_t now) {
       float remaining = static_cast<float>(computeRemainingMs(st, effectiveNow)) / 1000.0f;
 
       uint32_t elapsed = computeElapsedMs(st, now);
-      if (elapsed < 100) {
-        drawRemainingWedge(remaining, total, st.mode == Mode::PAUSED);
-      }
+      drawRemainingWedge(remaining, total, st.mode == Mode::PAUSED);
       drawMinuteHand(remaining, total);
 
       if (st.mode == Mode::PAUSED) {
