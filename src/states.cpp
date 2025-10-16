@@ -80,6 +80,10 @@ void enterPaused(PomodoroState &st) {
   st.stateTs = st.pausedAtMs;
   st.blinkTs = st.pausedAtMs;
   st.blinkOn = true;
+  st.blinkDurationMs = PAUSE_BLINK_WHITE_MS;
+  st.blinkFrameTs = st.pausedAtMs;
+  st.blinkFromLevel = 0.0f;
+  st.blinkToLevel = 1.0f;
   renderAll(st, true, st.pausedAtMs);
 }
 

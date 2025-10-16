@@ -32,6 +32,7 @@
 - 2024-05-11: 엔트리 파일을 `pomodoro-stopwatch.ino`로 승격하여 Arduino 스케치 규약을 따름.
 - 2024-05-12: 일시정지 시 연분홍 배경과 흑백 분침 점멸을 적용하고 3분 후 타임아웃 플로우로 진입하도록 수정.
 - 2024-05-13: 일시정지 해제 시 경과 시간이 이어지도록 오버플로우 안전성을 보강.
+- 2024-05-14: 일시정지 분침 점멸을 이징(ease-out) 기반 페이드로 전환하고 검정 0.6초, 흰색 0.4초 사이클로 조정.
 
 ## Pull request rules
 - **Title**: `[FEAT|FIX|REFACTOR|CHORE|DOCS|TEST] Description` written in Korean.

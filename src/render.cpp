@@ -8,6 +8,23 @@ constexpr int16_t WEDGE_RADIUS = R_OUT - 6;
 constexpr int16_t ARC_INNER = WEDGE_RADIUS - 2;
 constexpr int16_t ARC_OUTER = WEDGE_RADIUS;
 
+uint16_t blend565(uint16_t from, uint16_t to, float t) {
+  t = clampf(t, 0.0f, 1.0f);
+  uint8_t fr = (from >> 11) & 0x1F;
+  uint8_t fg = (from >> 5) & 0x3F;
+  uint8_t fb = from & 0x1F;
+
+  uint8_t tr = (to >> 11) & 0x1F;
+  uint8_t tg = (to >> 5) & 0x3F;
+  uint8_t tb = to & 0x1F;
+
+  uint8_t rr = static_cast<uint8_t>(lrintf(lerpf(fr, tr, t)));
+  uint8_t rg = static_cast<uint8_t>(lrintf(lerpf(fg, tg, t)));
+  uint8_t rb = static_cast<uint8_t>(lrintf(lerpf(fb, tb, t)));
+
+  return (rr << 11) | (rg << 5) | rb;
+}
+
 float normalizeAngle(float deg) {
   while (deg < 0.0f) { deg += 360.0f; }
   while (deg >= 360.0f) { deg -= 360.0f; }
@@ -95,17 +112,23 @@ void renderAll(PomodoroState &st, bool forceBg, uint32_t now) {
         drawRemainingWedge(remaining, total, st.mode == Mode::PAUSED, bgColor);
       }
       if (st.mode == Mode::PAUSED) {
-        uint16_t pointerColor = st.blinkOn ? COL_WHITE : COL_BLACK;
+        uint32_t duration = st.blinkDurationMs ? st.blinkDurationMs
+                                               : (st.blinkOn ? PAUSE_BLINK_WHITE_MS
+                                                             : PAUSE_BLINK_BLACK_MS);
+        uint32_t blinkElapsed = (now >= st.blinkTs) ? (now - st.blinkTs) : 0;
+        float t = duration == 0 ? 1.0f
+                                : clampf(static_cast<float>(blinkElapsed) / static_cast<float>(duration), 0.0f, 1.0f);
+        float eased = easeOut(t);
+        float blinkLevel = lerpf(st.blinkFromLevel, st.blinkToLevel, eased);
+        uint16_t pointerColor = blend565(COL_BLACK, COL_WHITE, blinkLevel);
         drawMinuteHand(remaining, total, bgColor, pointerColor, pointerColor);
-      } else {
-        drawMinuteHand(remaining, total, bgColor, COL_RED_DARK, COL_RED);
-      }
-
-      if (st.mode == Mode::PAUSED) {
-        drawBlinkingTip(remaining, total, st.blinkOn, bgColor);
+        drawBlinkingTip(remaining, total, blinkLevel >= 0.5f, bgColor);
         uint32_t remainingMs = computeRemainingMs(st, effectiveNow);
         uint32_t remainingMin = (remainingMs + 59999UL) / 60000UL;
         showCenterText(String(remainingMin), 4, COL_RED, bgColor);
+      } else {
+        drawMinuteHand(remaining, total, bgColor, COL_RED_DARK, COL_RED);
+        drawBlinkingTip(remaining, total, false, bgColor);
       }
       break;
     }

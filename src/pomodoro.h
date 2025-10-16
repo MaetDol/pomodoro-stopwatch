@@ -59,7 +59,9 @@ constexpr uint16_t COL_LIGHTRED  = 0xFBE0;
 constexpr uint16_t COL_WHITE     = 0xFFFF;
 
 constexpr uint32_t RUN_REPAINT_MS         = 1000;
-constexpr uint32_t PAUSE_BLINK_MS         = 500;
+constexpr uint32_t PAUSE_BLINK_WHITE_MS   = 400;
+constexpr uint32_t PAUSE_BLINK_BLACK_MS   = 600;
+constexpr uint32_t PAUSE_BLINK_FRAME_MS   = 40;
 constexpr uint32_t PAUSE_SLEEP_DELAY_MS   = 180000UL;
 constexpr uint32_t ENCODER_THROTTLE_MS    = 500;
 constexpr uint32_t SETTING_ANIM_DURATION_MS = 300;
@@ -151,6 +153,10 @@ struct PomodoroState {
   uint32_t pausedAtMs = 0;
   bool blinkOn = false;
   uint32_t blinkTs = 0;
+  uint32_t blinkDurationMs = 0;
+  uint32_t blinkFrameTs = 0;
+  float blinkFromLevel = 0.0f;
+  float blinkToLevel = 0.0f;
   uint32_t lastEncoderMs = 0;
   float settingFracCurrent = 0.0f;
   float settingFracTarget = 0.0f;
@@ -243,6 +249,13 @@ inline void resetDisplayCache(DisplayState &disp) {
   disp.dial = DisplayDialCache{};
 }
 
-inline void resetBlink(PomodoroState &st, uint32_t now) { st.blinkTs = now; st.blinkOn = false; }
+inline void resetBlink(PomodoroState &st, uint32_t now) {
+  st.blinkTs = now;
+  st.blinkOn = false;
+  st.blinkDurationMs = 0;
+  st.blinkFrameTs = now;
+  st.blinkFromLevel = 0.0f;
+  st.blinkToLevel = 0.0f;
+}
 
 #endif  // POMODORO_H
