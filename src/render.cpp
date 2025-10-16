@@ -39,8 +39,17 @@ void paintRingSegment(float fromDeg, float toDeg, uint16_t fillColor, uint16_t a
   fillArc(tft, CX, CY, ARC_INNER, ARC_OUTER, start, target, arcColor, step);
 }
 
-void clearDialArea() {
-  paintRingSegment(0.0f, 360.0f, COL_BG, COL_BG, 4.0f);
+uint16_t backgroundColorForMode(const PomodoroState &st) {
+  switch (st.mode) {
+    case Mode::PAUSED:
+      return COL_BG_PAUSED;
+    default:
+      return COL_BG;
+  }
+}
+
+void clearDialArea(uint16_t bgColor) {
+  paintRingSegment(0.0f, 360.0f, bgColor, bgColor, 4.0f);
 }
 
 }  // namespace
@@ -54,7 +63,9 @@ void renderAll(PomodoroState &st, bool forceBg, uint32_t now) {
     resetDisplayCache(gDisplay);
   }
 
-  drawDialBackground(forceBg);
+  uint16_t bgColor = backgroundColorForMode(st);
+
+  drawDialBackground(bgColor, forceBg);
 
   switch (st.mode) {
     case Mode::SETTING: {
@@ -65,8 +76,8 @@ void renderAll(PomodoroState &st, bool forceBg, uint32_t now) {
       frac = clampf(frac, 0.0f, 1.0f);
       st.settingFracCurrent = frac;
       float remainingSeconds = frac * (60.0f * 60.0f);
-      drawRemainingWedge(remainingSeconds, totalSeconds, false);
-      drawMinuteHand(remainingSeconds, totalSeconds);
+      drawRemainingWedge(remainingSeconds, totalSeconds, false, bgColor);
+      drawMinuteHand(remainingSeconds, totalSeconds, bgColor, COL_RED_DARK, COL_RED);
       break;
     }
     case Mode::RUNNING:
@@ -81,15 +92,20 @@ void renderAll(PomodoroState &st, bool forceBg, uint32_t now) {
 
       uint32_t elapsed = computeElapsedMs(st, now);
       if (elapsed < 100) {
-        drawRemainingWedge(remaining, total, st.mode == Mode::PAUSED);
+        drawRemainingWedge(remaining, total, st.mode == Mode::PAUSED, bgColor);
       }
-      drawMinuteHand(remaining, total);
+      if (st.mode == Mode::PAUSED) {
+        uint16_t pointerColor = st.blinkOn ? COL_WHITE : COL_BLACK;
+        drawMinuteHand(remaining, total, bgColor, pointerColor, pointerColor);
+      } else {
+        drawMinuteHand(remaining, total, bgColor, COL_RED_DARK, COL_RED);
+      }
 
       if (st.mode == Mode::PAUSED) {
-        drawBlinkingTip(remaining, total, st.blinkOn);
+        drawBlinkingTip(remaining, total, st.blinkOn, bgColor);
         uint32_t remainingMs = computeRemainingMs(st, effectiveNow);
         uint32_t remainingMin = (remainingMs + 59999UL) / 60000UL;
-        showCenterText(String(remainingMin), 4);
+        showCenterText(String(remainingMin), 4, COL_RED, bgColor);
       }
       break;
     }
@@ -99,13 +115,13 @@ void renderAll(PomodoroState &st, bool forceBg, uint32_t now) {
   }
 }
 
-void drawDialBackground(bool clearAll) {
+void drawDialBackground(uint16_t bgColor, bool clearAll) {
   if (clearAll) {
-    tft.fillScreen(COL_BG);
+    tft.fillScreen(bgColor);
   }
 }
 
-void drawRemainingWedge(float remainingSec, float totalSec, bool paused) {
+void drawRemainingWedge(float remainingSec, float totalSec, bool paused, uint16_t bgColor) {
   if (totalSec <= 0.0f) {
     return;
   }
@@ -119,13 +135,13 @@ void drawRemainingWedge(float remainingSec, float totalSec, bool paused) {
   bool colorChanged = !cache.wedgeValid || cache.wedgeColor != color;
 
   if (!cache.wedgeValid || colorChanged) {
-    clearDialArea();
+    clearDialArea(bgColor);
     if (newEnd > ANGLE_EPS) {
       paintRingSegment(0.0f, newEnd, color, COL_RED_DARK);
     }
   } else {
     if (newEnd + ANGLE_EPS < cache.wedgeEndDeg) {
-      paintRingSegment(newEnd, cache.wedgeEndDeg, COL_BG, COL_BG);
+      paintRingSegment(newEnd, cache.wedgeEndDeg, bgColor, bgColor);
     } else if (newEnd > cache.wedgeEndDeg + ANGLE_EPS) {
       paintRingSegment(cache.wedgeEndDeg, newEnd, color, COL_RED_DARK);
     }
@@ -136,7 +152,7 @@ void drawRemainingWedge(float remainingSec, float totalSec, bool paused) {
   cache.wedgeColor = color;
 }
 
-void drawMinuteHand(float remainingSec, float totalSec) {
+void drawMinuteHand(float remainingSec, float totalSec, uint16_t bgColor, uint16_t pointerColor, uint16_t hubColor) {
   if (totalSec <= 0.0f) {
     return;
   }
@@ -148,7 +164,7 @@ void drawMinuteHand(float remainingSec, float totalSec) {
   if (cache.pointerValid) {
     float start = cache.pointerAngleDeg - POINTER_RESTORE_SPAN;
     if (cache.prevWedgeEndDeg > cache.wedgeEndDeg + ANGLE_EPS) {
-      paintRingSegment(start, cache.pointerAngleDeg, COL_BG, COL_BG);
+      paintRingSegment(start, cache.pointerAngleDeg, bgColor, bgColor);
     } else {
       paintRingSegment(start, cache.pointerAngleDeg, cache.wedgeColor, COL_RED_DARK);
     }
@@ -156,10 +172,10 @@ void drawMinuteHand(float remainingSec, float totalSec) {
 
   int16_t shadowX, shadowY;
   polarToScreen(angle - 1.0f, WEDGE_RADIUS, shadowX, shadowY);
-  drawThickLine(tft, CX, CY, shadowX, shadowY, COL_RED_DARK, 3);
+  drawThickLine(tft, CX, CY, shadowX, shadowY, pointerColor, 3);
 
-  fillSector(tft, CX, CY, WEDGE_RADIUS, angle, angle + 10.0f, COL_BG, 1.0f);
-  tft.fillCircle(CX, CY, 6, COL_RED);
+  fillSector(tft, CX, CY, WEDGE_RADIUS, angle, angle + 10.0f, bgColor, 1.0f);
+  tft.fillCircle(CX, CY, 6, hubColor);
 
   cache.pointerValid = true;
   cache.pointerAngleDeg = angle;
@@ -191,7 +207,7 @@ void drawThickLine(Adafruit_GFX &gfx, int16_t x0, int16_t y0, int16_t x1, int16_
   }
 }
 
-void drawBlinkingTip(float remainingSec, float totalSec, bool on) {
+void drawBlinkingTip(float remainingSec, float totalSec, bool on, uint16_t bgColor) {
   DisplayDialCache &cache = gDisplay.dial;
 
   auto clearPrevious = [&]() {
@@ -200,7 +216,7 @@ void drawBlinkingTip(float remainingSec, float totalSec, bool on) {
     }
     uint16_t base = (cache.blinkAngleDeg <= cache.wedgeEndDeg + ANGLE_EPS)
                         ? cache.wedgeColor
-                        : COL_BG;
+                        : bgColor;
     tft.fillCircle(cache.blinkX, cache.blinkY, 5, base);
     cache.blinkVisible = false;
   };
@@ -235,7 +251,7 @@ void showCenterText(const String &s, uint8_t textSize, uint16_t color, uint16_t 
   tft.setTextColor(color, bg);
   tft.setTextSize(textSize);
   tft.setTextWrap(false);
-  drawCenterText(s);
+  drawCenterText(s, bg);
   tft.print(s);
 }
 
@@ -243,13 +259,13 @@ void showCenterText(const char *s, uint8_t textSize, uint16_t color, uint16_t bg
   showCenterText(String(s), textSize, color, bg);
 }
 
-void drawCenterText(const String &s) {
+void drawCenterText(const String &s, uint16_t bg) {
   int16_t x1, y1;
   uint16_t w, h;
   tft.getTextBounds(s, 0, 0, &x1, &y1, &w, &h);
   int16_t x = CX - static_cast<int16_t>(w) / 2;
   int16_t y = CY - static_cast<int16_t>(h) / 2;
-  tft.fillCircle(CX, CY, (w > h ? w : h) / 1.2f + CENTER_CLEAR_PADDING, COL_BG);
+  tft.fillCircle(CX, CY, (w > h ? w : h) / 1.2f + CENTER_CLEAR_PADDING, bg);
   tft.setCursor(x, y);
 }
 

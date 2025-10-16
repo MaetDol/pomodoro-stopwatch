@@ -30,6 +30,8 @@
 - 2024-05-09: Encoder rotation now starts the run immediately with a 2s center readout and 0.3s ease-out wedge animation.
 - 2024-05-10: `release` 브랜치 푸시 시 번들 생성 및 릴리스 업로드 워크플로우 추가.
 - 2024-05-11: 엔트리 파일을 `pomodoro-stopwatch.ino`로 승격하여 Arduino 스케치 규약을 따름.
+- 2024-05-12: 일시정지 시 연분홍 배경과 흑백 분침 점멸을 적용하고 3분 후 타임아웃 플로우로 진입하도록 수정.
+- 2024-05-13: 일시정지 해제 시 경과 시간이 이어지도록 오버플로우 안전성을 보강.
 
 ## Pull request rules
 - **Title**: `[FEAT|FIX|REFACTOR|CHORE|DOCS|TEST] Description` written in Korean.

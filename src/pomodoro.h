@@ -50,7 +50,9 @@ constexpr uint16_t COL_PRIMARY = rgb565(255, 107, 87);
 
 constexpr uint16_t COL_BG        = 0xfffa;
 constexpr uint16_t COL_BG_DARK   = 0xeed7;
+constexpr uint16_t COL_BG_PAUSED = rgb565(255, 235, 235);
 constexpr uint16_t COL_DARK      = 0x39E7;
+constexpr uint16_t COL_BLACK     = 0x0000;
 constexpr uint16_t COL_RED       = COL_PRIMARY;
 constexpr uint16_t COL_RED_DARK  = 0xe2a8;
 constexpr uint16_t COL_LIGHTRED  = 0xFBE0;
@@ -203,13 +205,16 @@ void enterTimeout(PomodoroState &st);
 void goToSleep(PomodoroState &st);
 
 void renderAll(PomodoroState &st, bool forceBg = false, uint32_t now = UINT32_MAX);
-void drawDialBackground(bool clearAll);
-void drawRemainingWedge(float remainingSec, float totalSec, bool paused);
-void drawMinuteHand(float remainingSec, float totalSec);
-void drawBlinkingTip(float remainingSec, float totalSec, bool on);
+void drawDialBackground(uint16_t bgColor = COL_BG, bool clearAll = false);
+void drawRemainingWedge(float remainingSec, float totalSec, bool paused, uint16_t bgColor = COL_BG);
+void drawMinuteHand(float remainingSec, float totalSec,
+                    uint16_t bgColor = COL_BG,
+                    uint16_t pointerColor = COL_RED_DARK,
+                    uint16_t hubColor = COL_RED);
+void drawBlinkingTip(float remainingSec, float totalSec, bool on, uint16_t bgColor = COL_BG);
 void showCenterText(const String &s, uint8_t textSize, uint16_t color = COL_RED, uint16_t bg = COL_BG);
 void showCenterText(const char *s, uint8_t textSize, uint16_t color = COL_RED, uint16_t bg = COL_BG);
-void drawCenterText(const String &s);
+void drawCenterText(const String &s, uint16_t bg = COL_BG);
 void fillArc(Adafruit_GFX& gfx,
              int16_t cx, int16_t cy,
              int16_t r_inner, int16_t r_outer,

@@ -44,7 +44,7 @@ void updateStateMachine(PomodoroState &st, uint32_t now) {
     }
     case Mode::PAUSED:
       if (now - st.pausedAtMs >= PAUSE_SLEEP_DELAY_MS) {
-        goToSleep(st);
+        enterTimeout(st);
       } else if (now - st.blinkTs >= PAUSE_BLINK_MS) {
         st.blinkTs = now;
         st.blinkOn = !st.blinkOn;
