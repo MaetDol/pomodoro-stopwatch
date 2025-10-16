@@ -72,6 +72,7 @@ void clearDialArea(uint16_t bgColor) {
 }  // namespace
 
 void renderAll(PomodoroState &st, bool forceBg, uint32_t now) {
+
   if (now == UINT32_MAX) {
     now = millis();
   }
@@ -95,6 +96,9 @@ void renderAll(PomodoroState &st, bool forceBg, uint32_t now) {
       float remainingSeconds = frac * (60.0f * 60.0f);
       drawRemainingWedge(remainingSeconds, totalSeconds, false, bgColor);
       drawMinuteHand(remainingSeconds, totalSeconds, bgColor, COL_RED_DARK, COL_RED);
+      if (now < st.centerDisplayUntilMs) {
+        showCenterText(String(st.centerDisplayValue), 4);
+      }
       break;
     }
     case Mode::RUNNING:
@@ -107,10 +111,7 @@ void renderAll(PomodoroState &st, bool forceBg, uint32_t now) {
       float total = static_cast<float>(st.runDurationMs) / 1000.0f;
       float remaining = static_cast<float>(computeRemainingMs(st, effectiveNow)) / 1000.0f;
 
-      uint32_t elapsed = computeElapsedMs(st, now);
-      if (elapsed < 100) {
-        drawRemainingWedge(remaining, total, st.mode == Mode::PAUSED, bgColor);
-      }
+      drawRemainingWedge(remaining, total, st.mode == Mode::PAUSED, bgColor);
       if (st.mode == Mode::PAUSED) {
         uint32_t duration = st.blinkDurationMs ? st.blinkDurationMs
                                                : (st.blinkOn ? PAUSE_BLINK_WHITE_MS

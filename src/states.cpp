@@ -47,7 +47,6 @@ void enterSetting(PomodoroState &st) {
   }
 
   renderAll(st, true, now);
-  showCenterText(String(st.centerDisplayValue), 4);
 }
 
 void resumeRun(PomodoroState &st) {

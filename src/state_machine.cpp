@@ -9,10 +9,6 @@ void updateStateMachine(PomodoroState &st, uint32_t now) {
       if (st.settingTween.isActive()) {
         renderAll(st, false, now);
       }
-      if (now < st.centerDisplayUntilMs) {
-        showCenterText(String(st.centerDisplayValue), 4);
-        break;
-      }
 
       if (st.pendingTimeout) {
         enterTimeout(st);
