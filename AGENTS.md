@@ -26,7 +26,7 @@
 2. While implementing, keep functions focused, comments up to date, and code concise.
 3. After feature completion, perform a quick cleanup/refactor pass.
 4. Run available checks. When hardware access is unavailable, attempt alternatives such as `arduino-cli compile --fqbn <board>` or document why testing was skipped.
-5. Document the changes and **always update this `AGENTS.md` at the end of your work**.
+5. Only when these guidelines need adjustments, update this `AGENTS.md` accordingly.
 
 ## Pull request rules
 
@@ -51,4 +51,4 @@
 
 ---
 
-> Every contributor must follow these rules and keep this document current after each change.
+> Every contributor must follow these rules and refresh this document only when the guidelines themselves evolve.
