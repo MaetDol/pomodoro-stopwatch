@@ -6,22 +6,21 @@ void updateStateMachine(PomodoroState &st, uint32_t now) {
       if (!gDisplay.isAwake) {
         tftExitSleepSeqSoftOnly();
       }
-      if (st.settingTween.isActive()) {
-        renderAll(st, false, now);
-      }
 
       if (st.pendingTimeout) {
         enterTimeout(st);
         break;
       }
 
-      st.centerDisplayUntilMs = 0;
-      st.centerDisplayValue = 0;
-      st.pendingTimeout = false;
-      st.mode = Mode::RUNNING;
-      st.stateTs = now;
-      st.blinkTs = now;
-      renderAll(st, true, now);
+      renderAll(st, false, now);
+      if (now > st.centerDisplayUntilMs) {
+        st.centerDisplayUntilMs = 0;
+        st.centerDisplayValue = 0;
+        st.pendingTimeout = false;
+        st.stateTs = now;
+        st.blinkTs = now;
+        st.mode = Mode::RUNNING;
+      }
       break;
     case Mode::RUNNING: {
       if (st.runDurationMs == 0) {

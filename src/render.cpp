@@ -95,7 +95,6 @@ void renderAll(PomodoroState &st, bool forceBg, uint32_t now) {
       st.settingFracCurrent = frac;
       float remainingSeconds = frac * (60.0f * 60.0f);
       drawRemainingWedge(remainingSeconds, totalSeconds, false, bgColor);
-      drawMinuteHand(remainingSeconds, totalSeconds, bgColor, COL_RED_DARK, COL_RED);
       if (now < st.centerDisplayUntilMs) {
         showCenterText(String(st.centerDisplayValue), 4);
       }
