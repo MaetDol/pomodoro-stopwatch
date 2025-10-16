@@ -50,14 +50,18 @@ constexpr uint16_t COL_PRIMARY = rgb565(255, 107, 87);
 
 constexpr uint16_t COL_BG        = 0xfffa;
 constexpr uint16_t COL_BG_DARK   = 0xeed7;
+constexpr uint16_t COL_BG_PAUSED = rgb565(255, 235, 235);
 constexpr uint16_t COL_DARK      = 0x39E7;
+constexpr uint16_t COL_BLACK     = 0x0000;
 constexpr uint16_t COL_RED       = COL_PRIMARY;
 constexpr uint16_t COL_RED_DARK  = 0xe2a8;
 constexpr uint16_t COL_LIGHTRED  = 0xFBE0;
 constexpr uint16_t COL_WHITE     = 0xFFFF;
 
 constexpr uint32_t RUN_REPAINT_MS         = 1000;
-constexpr uint32_t PAUSE_BLINK_MS         = 500;
+constexpr uint32_t PAUSE_BLINK_WHITE_MS   = 400;
+constexpr uint32_t PAUSE_BLINK_BLACK_MS   = 600;
+constexpr uint32_t PAUSE_BLINK_FRAME_MS   = 40;
 constexpr uint32_t PAUSE_SLEEP_DELAY_MS   = 180000UL;
 constexpr uint32_t ENCODER_THROTTLE_MS    = 500;
 constexpr uint32_t SETTING_ANIM_DURATION_MS = 300;
@@ -149,6 +153,10 @@ struct PomodoroState {
   uint32_t pausedAtMs = 0;
   bool blinkOn = false;
   uint32_t blinkTs = 0;
+  uint32_t blinkDurationMs = 0;
+  uint32_t blinkFrameTs = 0;
+  float blinkFromLevel = 0.0f;
+  float blinkToLevel = 0.0f;
   uint32_t lastEncoderMs = 0;
   float settingFracCurrent = 0.0f;
   float settingFracTarget = 0.0f;
@@ -203,13 +211,16 @@ void enterTimeout(PomodoroState &st);
 void goToSleep(PomodoroState &st);
 
 void renderAll(PomodoroState &st, bool forceBg = false, uint32_t now = UINT32_MAX);
-void drawDialBackground(bool clearAll);
-void drawRemainingWedge(float remainingSec, float totalSec, bool paused);
-void drawMinuteHand(float remainingSec, float totalSec);
-void drawBlinkingTip(float remainingSec, float totalSec, bool on);
+void drawDialBackground(uint16_t bgColor = COL_BG, bool clearAll = false);
+void drawRemainingWedge(float remainingSec, float totalSec, bool paused, uint16_t bgColor = COL_BG);
+void drawMinuteHand(float remainingSec, float totalSec,
+                    uint16_t bgColor = COL_BG,
+                    uint16_t pointerColor = COL_RED_DARK,
+                    uint16_t hubColor = COL_RED);
+void drawBlinkingTip(float remainingSec, float totalSec, bool on, uint16_t bgColor = COL_BG);
 void showCenterText(const String &s, uint8_t textSize, uint16_t color = COL_RED, uint16_t bg = COL_BG);
 void showCenterText(const char *s, uint8_t textSize, uint16_t color = COL_RED, uint16_t bg = COL_BG);
-void drawCenterText(const String &s);
+void drawCenterText(const String &s, uint16_t bg = COL_BG);
 void fillArc(Adafruit_GFX& gfx,
              int16_t cx, int16_t cy,
              int16_t r_inner, int16_t r_outer,
@@ -238,6 +249,13 @@ inline void resetDisplayCache(DisplayState &disp) {
   disp.dial = DisplayDialCache{};
 }
 
-inline void resetBlink(PomodoroState &st, uint32_t now) { st.blinkTs = now; st.blinkOn = false; }
+inline void resetBlink(PomodoroState &st, uint32_t now) {
+  st.blinkTs = now;
+  st.blinkOn = false;
+  st.blinkDurationMs = 0;
+  st.blinkFrameTs = now;
+  st.blinkFromLevel = 0.0f;
+  st.blinkToLevel = 0.0f;
+}
 
 #endif  // POMODORO_H

@@ -5,7 +5,8 @@ uint8_t currentMinutes(const PomodoroState &st) {
 }
 
 uint32_t computeElapsedMs(const PomodoroState &st, uint32_t now) {
-  return now - st.runStartMs;
+  uint32_t start = st.runStartMs;
+  return (now >= start) ? (now - start) : (UINT32_MAX - start + 1U + now);
 }
 
 uint32_t computeRemainingMs(const PomodoroState &st, uint32_t now) {

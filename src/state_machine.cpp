@@ -42,15 +42,36 @@ void updateStateMachine(PomodoroState &st, uint32_t now) {
       }
       break;
     }
-    case Mode::PAUSED:
+    case Mode::PAUSED: {
       if (now - st.pausedAtMs >= PAUSE_SLEEP_DELAY_MS) {
-        goToSleep(st);
-      } else if (now - st.blinkTs >= PAUSE_BLINK_MS) {
+        enterTimeout(st);
+        break;
+      }
+
+      bool needsRender = false;
+      uint32_t duration = st.blinkDurationMs > 0 ? st.blinkDurationMs
+                                                : (st.blinkOn ? PAUSE_BLINK_WHITE_MS
+                                                              : PAUSE_BLINK_BLACK_MS);
+      if (now - st.blinkTs >= duration) {
         st.blinkTs = now;
+        st.blinkFromLevel = st.blinkToLevel;
         st.blinkOn = !st.blinkOn;
-        renderAll(st, false, st.pausedAtMs);
+        st.blinkToLevel = st.blinkOn ? 1.0f : 0.0f;
+        st.blinkDurationMs = st.blinkOn ? PAUSE_BLINK_WHITE_MS : PAUSE_BLINK_BLACK_MS;
+        st.blinkFrameTs = now;
+        needsRender = true;
+      }
+
+      if (now - st.blinkFrameTs >= PAUSE_BLINK_FRAME_MS) {
+        st.blinkFrameTs = now;
+        needsRender = true;
+      }
+
+      if (needsRender) {
+        renderAll(st, false, now);
       }
       break;
+    }
     case Mode::TIMEOUT:
     case Mode::SLEEPING:
       break;

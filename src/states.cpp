@@ -56,8 +56,16 @@ void resumeRun(PomodoroState &st) {
   }
 
   uint32_t now = millis();
-  st.runStartMs += (now - st.pausedAtMs);
+  uint32_t pausedAt = st.pausedAtMs;
+  if (pausedAt != 0) {
+    uint32_t pausedDuration = (now >= pausedAt) ? (now - pausedAt)
+                                               : (UINT32_MAX - pausedAt + 1U + now);
+    st.runStartMs += pausedDuration;
+  } else {
+    st.runStartMs = now;
+  }
   st.pausedAtMs = 0;
+  st.lastInputMs = now;
   st.mode = Mode::RUNNING;
   st.stateTs = now;
   clearCenterDisplay(st);
@@ -72,6 +80,10 @@ void enterPaused(PomodoroState &st) {
   st.stateTs = st.pausedAtMs;
   st.blinkTs = st.pausedAtMs;
   st.blinkOn = true;
+  st.blinkDurationMs = PAUSE_BLINK_WHITE_MS;
+  st.blinkFrameTs = st.pausedAtMs;
+  st.blinkFromLevel = 0.0f;
+  st.blinkToLevel = 1.0f;
   renderAll(st, true, st.pausedAtMs);
 }
 
