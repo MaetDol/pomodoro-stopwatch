@@ -1,6 +1,7 @@
 # Pomodoro Stopwatch – Agent Guidelines
 
 ## Project overview
+
 - **Target hardware**: ESP32-S3 driving a 240×240 circular GC9A01A TFT for a Pomodoro timer/stopwatch.
 - **Firmware structure (`src/`)**:
   - `pomodoro-stopwatch.ino`: Arduino entry point, ISR wiring, global state coordination.
@@ -12,6 +13,7 @@
   - `pomodoro.h`: Shared constants, types, and extern declarations.
 
 ## Coding principles
+
 1. **Prioritize readability**: Split long functions, use meaningful names, avoid clever macros or tricks.
 2. **Respect existing style**: Two-space indentation, current brace placement, and consistent `const`/`constexpr` usage.
 3. **Protect hardware flow**: Never place blocking calls inside ISRs or timing-critical paths; manage shared state carefully.
@@ -19,25 +21,19 @@
 5. **Refine before finishing**: Revisit the code before closing the task to deduplicate logic, tighten scopes, and refresh comments.
 
 ## Working checklist
+
 1. Review the relevant files and understand the impact area before coding.
 2. While implementing, keep functions focused, comments up to date, and code concise.
 3. After feature completion, perform a quick cleanup/refactor pass.
 4. Run available checks. When hardware access is unavailable, attempt alternatives such as `arduino-cli compile --fqbn <board>` or document why testing was skipped.
 5. Document the changes and **always update this `AGENTS.md` at the end of your work**.
 
-## Recent updates
-- 2024-05-07: Timeout blink flow now polls encoder input to jump back into setting immediately on rotation.
-- 2024-05-09: Encoder rotation now starts the run immediately with a 2s center readout and 0.3s ease-out wedge animation.
-- 2024-05-10: `release` 브랜치 푸시 시 번들 생성 및 릴리스 업로드 워크플로우 추가.
-- 2024-05-11: 엔트리 파일을 `pomodoro-stopwatch.ino`로 승격하여 Arduino 스케치 규약을 따름.
-- 2024-05-12: 일시정지 시 연분홍 배경과 흑백 분침 점멸을 적용하고 3분 후 타임아웃 플로우로 진입하도록 수정.
-- 2024-05-13: 일시정지 해제 시 경과 시간이 이어지도록 오버플로우 안전성을 보강.
-- 2024-05-14: 일시정지 분침 점멸을 이징(ease-out) 기반 페이드로 전환하고 검정 0.6초, 흰색 0.4초 사이클로 조정.
-
 ## Pull request rules
+
 - **Title**: `[FEAT|FIX|REFACTOR|CHORE|DOCS|TEST] Description` written in Korean.
 - **Body language**: Always write the PR body in Korean.
 - **Body template** (keep mandatory sections, add more only if necessary):
+
   ```
   ## 개요
   - 주요 변화 요약 (불릿)
@@ -49,8 +45,10 @@
   - ✅ `command` - 결과 설명 (성공)
   - ⚠️/❌ `command` - 실패나 미실행 사유
   ```
+
 - Even when tests are skipped or impossible, use `⚠️` or `❌` and explain why.
 - Keep bullet points succinct so reviewers can parse them quickly.
 
 ---
+
 > Every contributor must follow these rules and keep this document current after each change.
