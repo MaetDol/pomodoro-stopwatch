@@ -35,6 +35,11 @@ void enterSetting(PomodoroState &st, bool preserveDial) {
   st.settingFracCurrent = startFrac;
   st.settingTween.startTween(startFrac, targetFrac, now, SETTING_ANIM_DURATION_MS, easeOut);
 
+  if (minutes == 0) {
+    st.settingTween.snapTo(targetFrac);
+    st.settingFracCurrent = targetFrac;
+  }
+
   st.centerDisplayValue = minutes;
   st.centerDisplayUntilMs = now + CENTER_DISPLAY_MS;
   st.pendingTimeout = (minutes == 0);
