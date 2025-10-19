@@ -192,12 +192,6 @@ void drawRemainingWedge(float remainingSec,
   bool hasBase = baseDegOverride >= 0.0f;
   float baseDeg = hasBase ? clampf(baseDegOverride, 0.0f, 360.0f) : 0.0f;
 
-  Serial.println("drawRemainingWedge: remainingSec=" + String(remainingSec) +
-                 " totalSec=" + String(totalSec) +
-                 " newEnd=" + String(newEnd) +
-                 " baseDeg=" + String(baseDeg) +
-                 " colorChanged=" + String(colorChanged) +
-                 " cache.wedgeValid=" + String(cache.wedgeValid));
   if (!cache.wedgeValid || colorChanged) {
     clearDialArea(bgColor);
     if (hasBase && baseDeg > ANGLE_EPS) {
