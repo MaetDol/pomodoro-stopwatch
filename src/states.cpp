@@ -63,8 +63,7 @@ void resumeRun(PomodoroState &st) {
   uint32_t now = millis();
   uint32_t pausedAt = st.pausedAtMs;
   if (pausedAt != 0) {
-    uint32_t pausedDuration = (now >= pausedAt) ? (now - pausedAt)
-                                               : (UINT32_MAX - pausedAt + 1U + now);
+    uint32_t pausedDuration = elapsedSince(pausedAt, now);
     st.runStartMs += pausedDuration;
   } else {
     st.runStartMs = now;
@@ -82,6 +81,7 @@ void enterPaused(PomodoroState &st) {
   clearCenterDisplay(st);
   st.mode = Mode::PAUSED;
   st.pausedAtMs = millis();
+  st.lastInputMs = st.pausedAtMs;
   st.stateTs = st.pausedAtMs;
   st.blinkTs = st.pausedAtMs;
   st.blinkOn = true;
@@ -98,7 +98,8 @@ bool waitForEncoderDuringTimeout(PomodoroState &st, uint32_t durationMs) {
   uint32_t start = millis();
   while (elapsedSince(start, millis()) < durationMs) {
     handleEncoderInput(st);
-    if (st.mode == Mode::SETTING) {
+    handleButtonInput(st);
+    if (st.mode != Mode::TIMEOUT) {
       return true;
     }
     delay(1);

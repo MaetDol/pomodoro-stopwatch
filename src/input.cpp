@@ -19,6 +19,7 @@ void handleEncoderInput(PomodoroState &st) {
   }
 
   st.lastEncoderMs = now;
+  st.lastInputMs = now;
 
   int8_t dir = (steps > 0) ? 1 : -1;
   if (dir > 0) {
@@ -35,6 +36,9 @@ void handleButtonInput(PomodoroState &st) {
   if (!btnDebounce.fell()) {
     return;
   }
+
+  uint32_t now = millis();
+  st.lastInputMs = now;
 
   switch (st.mode) {
     case Mode::SETTING:
