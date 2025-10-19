@@ -49,7 +49,7 @@ constexpr int16_t R_OUT = 116;
 constexpr uint16_t COL_PRIMARY = rgb565(255, 107, 87);
 
 constexpr uint16_t COL_BG        = 0xfffa;
-constexpr uint16_t COL_BG_DARK   = 0xeed7;
+constexpr uint16_t COL_BG_DARK   = 0xeeb3;
 constexpr uint16_t COL_BG_PAUSED = rgb565(255, 235, 235);
 constexpr uint16_t COL_DARK      = 0x39E7;
 constexpr uint16_t COL_BLACK     = 0x0000;
@@ -66,6 +66,7 @@ constexpr uint32_t PAUSE_SLEEP_DELAY_MS   = 180000UL;
 constexpr uint32_t ENCODER_THROTTLE_MS    = 1000;
 constexpr uint32_t SETTING_ANIM_DURATION_MS = 300;
 constexpr uint32_t CENTER_DISPLAY_MS      = 2000;
+constexpr uint32_t CENTER_FADE_IN_MS      = 220;  // ms duration for center text background fade-in
 constexpr uint8_t  TIMEOUT_BLINK_COUNT    = 5;
 constexpr uint8_t  OPTION_COUNT           = 4;
 constexpr uint8_t  CENTER_CLEAR_PADDING   = 6;
@@ -312,6 +313,9 @@ struct DisplayState {
   bool isAwake = true;
   DisplayDialCache dial;
   ValueAnimationList animations;
+  float centerFadeLevel = 1.0f;   // 0.0 → transparent background, 1.0 → solid
+  uint16_t centerFadeBg = COL_BG;  // desired background color for fade
+  String centerLastText;           // cache to detect text changes and restart fade
 };
 
 extern EncoderState gEncoder;
@@ -384,6 +388,13 @@ inline void resetBlink(PomodoroState &st, uint32_t now) {
   st.blinkFrameTs = now;
   st.blinkLevel = 0.0f;
   gDisplay.animations.remove(&st.blinkLevel);
+}
+
+inline void resetCenterFade(DisplayState &disp) {
+  disp.animations.remove(&disp.centerFadeLevel);
+  disp.centerFadeLevel = 0.0f;
+  disp.centerFadeBg = COL_BG;
+  disp.centerLastText = "";
 }
 
 #endif  // POMODORO_H

@@ -92,6 +92,48 @@ void clearDialArea(uint16_t bgColor) {
   paintRingSegment(0.0f, 360.0f, bgColor, bgColor, 4.0f);
 }
 
+void fillCircleBlend(GFXcanvas16 &canvas,
+                     int16_t cx,
+                     int16_t cy,
+                     int16_t radius,
+                     uint16_t targetColor,
+                     float alpha) {
+  alpha = clampf(alpha, 0.0f, 1.0f);
+  if (alpha <= ANIMATION_EPSILON) {
+    return;
+  }
+
+  uint16_t *buffer = canvas.getBuffer();
+  if (!buffer || alpha >= 1.0f - ANIMATION_EPSILON) {
+    canvas.fillCircle(cx, cy, radius, targetColor);
+    return;
+  }
+
+  int32_t radiusSq = static_cast<int32_t>(radius) * static_cast<int32_t>(radius);
+  int16_t minX = cx - radius;
+  if (minX < 0) { minX = 0; }
+  int16_t maxX = cx + radius;
+  if (maxX >= W) { maxX = W - 1; }
+  int16_t minY = cy - radius;
+  if (minY < 0) { minY = 0; }
+  int16_t maxY = cy + radius;
+  if (maxY >= H) { maxY = H - 1; }
+
+  for (int16_t y = minY; y <= maxY; ++y) {
+    int32_t dy = static_cast<int32_t>(y - cy);
+    int32_t dySq = dy * dy;
+    uint16_t *row = buffer + static_cast<int32_t>(y) * W;
+    for (int16_t x = minX; x <= maxX; ++x) {
+      int32_t dx = static_cast<int32_t>(x - cx);
+      if (dx * dx + dySq > radiusSq) {
+        continue;
+      }
+      uint16_t existing = row[x];
+      row[x] = blend565(existing, targetColor, alpha);
+    }
+  }
+}
+
 }  // namespace
 
 void renderAll(PomodoroState &st, bool forceBg, uint32_t now) {
@@ -232,7 +274,7 @@ void drawMinuteHand(float remainingSec, float totalSec, uint16_t bgColor, uint16
   drawThickLine(gCanvas, CX, CY, shadowX, shadowY, pointerColor, 3);
 
   fillSector(gCanvas, CX, CY, WEDGE_RADIUS, angle, angle + 10.0f, bgColor, 1.0f);
-  gCanvas.fillCircle(CX, CY, 6, hubColor);
+  gCanvas.fillCircle(CX, CY, 12, COL_BG_DARK);
 
   cache.pointerValid = true;
   cache.pointerAngleDeg = angle;
@@ -305,7 +347,22 @@ void drawBlinkingTip(float remainingSec, float totalSec, bool on, uint16_t bgCol
 }
 
 void showCenterText(const String &s, uint8_t textSize, uint16_t color, uint16_t bg) {
-  gCanvas.setTextColor(color, bg);
+  bool changed = (gDisplay.centerLastText != s) || (gDisplay.centerFadeBg != bg);
+  if (changed) {
+    uint32_t now = millis();
+    gDisplay.centerFadeBg = bg;
+    gDisplay.centerLastText = s;
+    gDisplay.animations.start(&gDisplay.centerFadeLevel,
+                              0.0f,
+                              1.0f,
+                              now,
+                              CENTER_FADE_IN_MS,
+                              easeOut);
+  }
+
+  gDisplay.centerFadeBg = bg;
+
+  gCanvas.setTextColor(color);
   gCanvas.setTextSize(textSize);
   gCanvas.setTextWrap(false);
   drawCenterText(s, bg);
@@ -326,7 +383,13 @@ void drawCenterText(const String &s, uint16_t bg) {
   int16_t x = CX - static_cast<int16_t>(w) / 2;
   int16_t y = CY - static_cast<int16_t>(h) / 2;
   float radius = static_cast<float>((w > h ? w : h)) / 1.2f + CENTER_CLEAR_PADDING;
-  gCanvas.fillCircle(CX, CY, static_cast<int16_t>(lrintf(radius)), bg);
+  int16_t radiusPx = static_cast<int16_t>(lrintf(radius));
+  float fade = clampf(gDisplay.centerFadeLevel, 0.0f, 1.0f);
+  if (fade >= 1.0f - ANIMATION_EPSILON) {
+    gCanvas.fillCircle(CX, CY, radiusPx, bg);
+  } else if (fade > ANIMATION_EPSILON) {
+    fillCircleBlend(gCanvas, CX, CY, radiusPx, bg, fade);
+  }
   gCanvas.setCursor(x, y);
 }
 

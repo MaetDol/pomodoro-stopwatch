@@ -6,6 +6,7 @@ void clearCenterDisplay(PomodoroState &st) {
   st.centerDisplayUntilMs = 0;
   st.centerDisplayValue = 0;
   st.pendingTimeout = false;
+  resetCenterFade(gDisplay);
 }
 
 void startRunForMinutes(PomodoroState &st, uint8_t minutes, uint32_t now) {
