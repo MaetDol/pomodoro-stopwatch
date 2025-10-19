@@ -282,7 +282,7 @@ def main():
 
     # Collect user-defined types (struct/class) for forward decls
     user_types = collect_user_types(headers + sources)
-    priority = ["DisplayState", "PomodoroState", "EncoderState"]
+    priority = ["DisplayState", "PomodoroState"]
     ordered_types = [n for n in priority if n in user_types] + [n for n in sorted(user_types) if n not in priority]
 
     chunks = []

@@ -133,22 +133,6 @@ void enterTimeout(PomodoroState &st) {
       return;
     }
   }
-  goToSleep(st);
-}
-
-void goToSleep(PomodoroState &st) {
-  st.mode = Mode::SLEEPING;
-  tft.fillScreen(COL_DARK);
-  tftEnterSleepSeqSoftOnly();
-  delay(50);
-  configureLightSleepWakeup();
-  esp_err_t err = esp_light_sleep_start();
-  if (err != ESP_OK) {
-    Serial.print("Light sleep failed: ");
-    Serial.println(err);
-  }
-  tftExitSleepSeqSoftOnly();
-  clearCenterDisplay(st);
   enterSetting(st);
 }
 

@@ -1,17 +1,51 @@
 #include "pomodoro.h"
 
-void handleEncoderInput(PomodoroState &st) {
-  uint32_t now = millis();
+namespace {
 
-  int8_t steps;
-  noInterrupts();
-  steps = gEncoder.steps;
+uint8_t gPrevEncoderBits = 0;
+int8_t gQuarterTurns = 0;
+int8_t gPendingSteps = 0;
+
+void pollEncoder() {
+  uint8_t a = digitalReadFast(ENC_A);
+  uint8_t b = digitalReadFast(ENC_B);
+  uint8_t encoded = static_cast<uint8_t>((a << 1) | b);
+
+  gPrevEncoderBits = static_cast<uint8_t>(((gPrevEncoderBits << 2) | encoded) & 0x0F);
+  static const int8_t LUT[16] = { 0, -1, 1, 0,
+                                   1,  0, 0, -1,
+                                  -1,  0, 0,  1,
+                                   0,  1, -1, 0 };
+
+  int8_t delta = LUT[gPrevEncoderBits];
+  if (!delta) {
+    return;
+  }
+
+  gQuarterTurns = static_cast<int8_t>(gQuarterTurns + delta);
+  if (gQuarterTurns >= 4) {
+    gQuarterTurns = 0;
+    ++gPendingSteps;
+  } else if (gQuarterTurns <= -4) {
+    gQuarterTurns = 0;
+    --gPendingSteps;
+  }
+}
+
+}  // namespace
+
+void handleEncoderInput(PomodoroState &st) {
+  pollEncoder();
+
+  uint32_t now = millis();
   bool throttleExpired = (st.lastEncoderMs == 0) || (now - st.lastEncoderMs >= ENCODER_THROTTLE_MS);
-  gEncoder.steps = 0;
+
+  int8_t steps = gPendingSteps;
+  gPendingSteps = 0;
+
   if (!throttleExpired) {
     steps = 0;
   }
-  interrupts();
 
   if (steps == 0) {
     return;

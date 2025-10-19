@@ -5,10 +5,6 @@ void updateStateMachine(PomodoroState &st, uint32_t now) {
 
   switch (st.mode) {
     case Mode::SETTING:
-      if (!gDisplay.isAwake) {
-        tftExitSleepSeqSoftOnly();
-      }
-
       if (st.pendingTimeout) {
         enterTimeout(st);
         break;
@@ -43,7 +39,7 @@ void updateStateMachine(PomodoroState &st, uint32_t now) {
       break;
     }
     case Mode::PAUSED: {
-      if (now - st.pausedAtMs >= PAUSE_SLEEP_DELAY_MS) {
+      if (now - st.pausedAtMs >= PAUSE_IDLE_DELAY_MS) {
         enterTimeout(st);
         break;
       }
@@ -78,7 +74,6 @@ void updateStateMachine(PomodoroState &st, uint32_t now) {
       break;
     }
     case Mode::TIMEOUT:
-    case Mode::SLEEPING:
       break;
   }
 }

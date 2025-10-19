@@ -194,7 +194,6 @@ void renderAll(PomodoroState &st, bool forceBg, uint32_t now) {
       break;
     }
     case Mode::TIMEOUT:
-    case Mode::SLEEPING:
       break;
   }
   presentCanvas();

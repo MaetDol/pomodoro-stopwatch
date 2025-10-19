@@ -13,11 +13,7 @@
 #include <limits.h>
 #include <math.h>
 
-#if defined(ARDUINO_ARCH_ESP32)
-  #include <esp_sleep.h>
-  #include <driver/gpio.h>
-  #include <driver/rtc_io.h>
-#else
+#if !defined(ARDUINO_ARCH_ESP32)
   #error "This firmware targets ESP32-S3 boards. Select an ESP32-S3 board before compiling."
 #endif
 
@@ -62,7 +58,7 @@ constexpr uint32_t RUN_REPAINT_MS         = 1000;
 constexpr uint32_t PAUSE_BLINK_WHITE_MS   = 400;
 constexpr uint32_t PAUSE_BLINK_BLACK_MS   = 600;
 constexpr uint32_t PAUSE_BLINK_FRAME_MS   = 40;
-constexpr uint32_t PAUSE_SLEEP_DELAY_MS   = 180000UL;
+constexpr uint32_t PAUSE_IDLE_DELAY_MS    = 180000UL;
 constexpr uint32_t ENCODER_THROTTLE_MS    = 1000;
 constexpr uint32_t SETTING_ANIM_DURATION_MS = 300;
 constexpr uint32_t CENTER_DISPLAY_MS      = 2000;
@@ -88,14 +84,7 @@ enum class Mode {
   SETTING,  // Rotary selection and dial animation while duration is being configured.
   RUNNING,  // Countdown in progress; render loop updates remaining time once per second.
   PAUSED,   // Countdown frozen with blinking indicator until resume or inactivity timeout.
-  TIMEOUT,  // Session finished; performs completion blink sequence before sleeping.
-  SLEEPING  // Display off and ESP32 in light sleep awaiting wake events.
-};
-
-struct EncoderState {
-  volatile int8_t steps = 0;
-  volatile uint8_t prev = 0;
-  volatile int8_t quarter = 0;
+  TIMEOUT   // Session finished; performs completion blink sequence before returning to setting mode.
 };
 
 float easeLinear(float t);
@@ -310,7 +299,6 @@ struct DisplayDialCache {
 };
 
 struct DisplayState {
-  bool isAwake = true;
   DisplayDialCache dial;
   ValueAnimationList animations;
   float centerFadeLevel = 1.0f;   // 0.0 → transparent background, 1.0 → solid
@@ -318,7 +306,6 @@ struct DisplayState {
   String centerLastText;           // cache to detect text changes and restart fade
 };
 
-extern EncoderState gEncoder;
 extern PomodoroState gState;
 extern DisplayState gDisplay;
 
@@ -340,7 +327,6 @@ void enterSetting(PomodoroState &st, bool preserveDial = false);
 void resumeRun(PomodoroState &st);
 void enterPaused(PomodoroState &st);
 void enterTimeout(PomodoroState &st);
-void goToSleep(PomodoroState &st);
 
 void renderAll(PomodoroState &st, bool forceBg = false, uint32_t now = UINT32_MAX);
 void drawDialBackground(uint16_t bgColor = COL_BG, bool clearAll = false);
@@ -369,13 +355,6 @@ void drawThickLine(Adafruit_GFX &gfx,
                    int16_t x1, int16_t y1,
                    uint16_t color,
                    uint8_t thickness = 3);
-
-void IRAM_ATTR onEncChange();
-void IRAM_ATTR wakeupFromButton();
-void wakeDummy();
-void configureLightSleepWakeup();
-void tftEnterSleepSeqSoftOnly();
-void tftExitSleepSeqSoftOnly();
 
 inline void resetDisplayCache(DisplayState &disp) {
   disp.dial = DisplayDialCache{};
