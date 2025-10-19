@@ -76,6 +76,7 @@ void paintRingSegment(float fromDeg, float toDeg, uint16_t fillColor, uint16_t a
     fillArc(gCanvas, CX, CY, ARC_INNER, ARC_OUTER, current, end, arcColor, step);
     remaining -= chunk;
     current = normalizeAngle(end);
+    yield();
   }
 }
 
@@ -370,6 +371,7 @@ void fillArc(Adafruit_GFX& gfx,
     // 사각형 띠를 두 개의 삼각형으로 채움 → 빈틈 없이 빠름
     gfx.fillTriangle(i0x,i0y, i1x,i1y, o0x,o0y, color);
     gfx.fillTriangle(o0x,o0y, i1x,i1y, o1x,o1y, color);
+    yield();
   }
 }
 
@@ -401,6 +403,7 @@ void fillSector(Adafruit_GFX& gfx,
     pt(an, x1,y1);
     // 중심-호-호 를 삼각형으로 채움 → 빠르고 빈틈 없음
     gfx.fillTriangle(cx, cy, x0, y0, x1, y1, color);
+    yield();
   }
 }
 
