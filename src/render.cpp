@@ -65,10 +65,18 @@ void paintRingSegment(float fromDeg, float toDeg, uint16_t fillColor, uint16_t a
     return;
   }
 
-  float start = normalizeAngle(fromDeg);
-  float target = start + sweep;
-  fillSector(gCanvas, CX, CY, WEDGE_RADIUS, start, target, fillColor, step);
-  fillArc(gCanvas, CX, CY, ARC_INNER, ARC_OUTER, start, target, arcColor, step);
+  float current = normalizeAngle(fromDeg);
+  float remaining = sweep;
+  const float MAX_CHUNK = 180.0f - ANGLE_EPS;
+
+  while (remaining > ANGLE_EPS) {
+    float chunk = fminf(remaining, MAX_CHUNK);
+    float end = current + chunk;
+    fillSector(gCanvas, CX, CY, WEDGE_RADIUS, current, end, fillColor, step);
+    fillArc(gCanvas, CX, CY, ARC_INNER, ARC_OUTER, current, end, arcColor, step);
+    remaining -= chunk;
+    current = normalizeAngle(end);
+  }
 }
 
 uint16_t backgroundColorForMode(const PomodoroState &st) {
