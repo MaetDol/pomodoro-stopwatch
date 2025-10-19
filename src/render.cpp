@@ -2,6 +2,21 @@
 
 namespace {
 
+GFXcanvas16 gCanvas(W, H);
+bool gInRenderPass = false;
+
+struct RenderPassGuard {
+  RenderPassGuard() { gInRenderPass = true; }
+  ~RenderPassGuard() { gInRenderPass = false; }
+};
+
+void presentCanvas() {
+  if (!gCanvas.getBuffer()) {
+    return;
+  }
+  tft.drawRGBBitmap(0, 0, gCanvas.getBuffer(), W, H);
+}
+
 constexpr float ANGLE_EPS = 0.25f;
 constexpr float POINTER_RESTORE_SPAN = 2.5f;
 constexpr int16_t WEDGE_RADIUS = R_OUT - 6;
@@ -52,8 +67,8 @@ void paintRingSegment(float fromDeg, float toDeg, uint16_t fillColor, uint16_t a
 
   float start = normalizeAngle(fromDeg);
   float target = start + sweep;
-  fillSector(tft, CX, CY, WEDGE_RADIUS, start, target, fillColor, step);
-  fillArc(tft, CX, CY, ARC_INNER, ARC_OUTER, start, target, arcColor, step);
+  fillSector(gCanvas, CX, CY, WEDGE_RADIUS, start, target, fillColor, step);
+  fillArc(gCanvas, CX, CY, ARC_INNER, ARC_OUTER, start, target, arcColor, step);
 }
 
 uint16_t backgroundColorForMode(const PomodoroState &st) {
@@ -72,6 +87,8 @@ void clearDialArea(uint16_t bgColor) {
 }  // namespace
 
 void renderAll(PomodoroState &st, bool forceBg, uint32_t now) {
+
+  RenderPassGuard guard;
 
   if (now == UINT32_MAX) {
     now = millis();
@@ -136,11 +153,16 @@ void renderAll(PomodoroState &st, bool forceBg, uint32_t now) {
     case Mode::SLEEPING:
       break;
   }
+  presentCanvas();
 }
 
 void drawDialBackground(uint16_t bgColor, bool clearAll) {
   if (clearAll) {
-    tft.fillScreen(bgColor);
+    if (gCanvas.getBuffer()) {
+      gCanvas.fillScreen(bgColor);
+    } else {
+      tft.fillScreen(bgColor);
+    }
   }
 }
 
@@ -195,10 +217,10 @@ void drawMinuteHand(float remainingSec, float totalSec, uint16_t bgColor, uint16
 
   int16_t shadowX, shadowY;
   polarToScreen(angle - 1.0f, WEDGE_RADIUS, shadowX, shadowY);
-  drawThickLine(tft, CX, CY, shadowX, shadowY, pointerColor, 3);
+  drawThickLine(gCanvas, CX, CY, shadowX, shadowY, pointerColor, 3);
 
-  fillSector(tft, CX, CY, WEDGE_RADIUS, angle, angle + 10.0f, bgColor, 1.0f);
-  tft.fillCircle(CX, CY, 6, hubColor);
+  fillSector(gCanvas, CX, CY, WEDGE_RADIUS, angle, angle + 10.0f, bgColor, 1.0f);
+  gCanvas.fillCircle(CX, CY, 6, hubColor);
 
   cache.pointerValid = true;
   cache.pointerAngleDeg = angle;
@@ -240,7 +262,7 @@ void drawBlinkingTip(float remainingSec, float totalSec, bool on, uint16_t bgCol
     uint16_t base = (cache.blinkAngleDeg <= cache.wedgeEndDeg + ANGLE_EPS)
                         ? cache.wedgeColor
                         : bgColor;
-    tft.fillCircle(cache.blinkX, cache.blinkY, 5, base);
+    gCanvas.fillCircle(cache.blinkX, cache.blinkY, 5, base);
     cache.blinkVisible = false;
   };
 
@@ -262,7 +284,7 @@ void drawBlinkingTip(float remainingSec, float totalSec, bool on, uint16_t bgCol
   float rad = deg2rad(rawAngle);
   int16_t x = CX + static_cast<int16_t>(lrintf(cosf(rad) * (R_OUT - 2)));
   int16_t y = CY + static_cast<int16_t>(lrintf(sinf(rad) * (R_OUT - 2)));
-  tft.fillCircle(x, y, 5, COL_LIGHTRED);
+  gCanvas.fillCircle(x, y, 5, COL_LIGHTRED);
 
   cache.blinkVisible = true;
   cache.blinkX = x;
@@ -271,11 +293,14 @@ void drawBlinkingTip(float remainingSec, float totalSec, bool on, uint16_t bgCol
 }
 
 void showCenterText(const String &s, uint8_t textSize, uint16_t color, uint16_t bg) {
-  tft.setTextColor(color, bg);
-  tft.setTextSize(textSize);
-  tft.setTextWrap(false);
+  gCanvas.setTextColor(color, bg);
+  gCanvas.setTextSize(textSize);
+  gCanvas.setTextWrap(false);
   drawCenterText(s, bg);
-  tft.print(s);
+  gCanvas.print(s);
+  if (!gInRenderPass) {
+    presentCanvas();
+  }
 }
 
 void showCenterText(const char *s, uint8_t textSize, uint16_t color, uint16_t bg) {
@@ -285,11 +310,12 @@ void showCenterText(const char *s, uint8_t textSize, uint16_t color, uint16_t bg
 void drawCenterText(const String &s, uint16_t bg) {
   int16_t x1, y1;
   uint16_t w, h;
-  tft.getTextBounds(s, 0, 0, &x1, &y1, &w, &h);
+  gCanvas.getTextBounds(s, 0, 0, &x1, &y1, &w, &h);
   int16_t x = CX - static_cast<int16_t>(w) / 2;
   int16_t y = CY - static_cast<int16_t>(h) / 2;
-  tft.fillCircle(CX, CY, (w > h ? w : h) / 1.2f + CENTER_CLEAR_PADDING, bg);
-  tft.setCursor(x, y);
+  float radius = static_cast<float>((w > h ? w : h)) / 1.2f + CENTER_CLEAR_PADDING;
+  gCanvas.fillCircle(CX, CY, static_cast<int16_t>(lrintf(radius)), bg);
+  gCanvas.setCursor(x, y);
 }
 
 void fillArc(Adafruit_GFX& gfx,
