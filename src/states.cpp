@@ -33,10 +33,15 @@ void enterSetting(PomodoroState &st, bool preserveDial) {
   float startFrac = preserveDial ? clampf(st.settingFracCurrent, 0.0f, 1.0f) : 0.0f;
   st.settingFracTarget = targetFrac;
   st.settingFracCurrent = startFrac;
-  st.settingTween.startTween(startFrac, targetFrac, now, SETTING_ANIM_DURATION_MS, easeOut);
+  gDisplay.animations.start(&st.settingFracCurrent,
+                             startFrac,
+                             targetFrac,
+                             now,
+                             SETTING_ANIM_DURATION_MS,
+                             easeOut);
 
   if (minutes == 0) {
-    st.settingTween.snapTo(targetFrac);
+    gDisplay.animations.remove(&st.settingFracCurrent);
     st.settingFracCurrent = targetFrac;
   }
 
@@ -87,8 +92,13 @@ void enterPaused(PomodoroState &st) {
   st.blinkOn = true;
   st.blinkDurationMs = PAUSE_BLINK_WHITE_MS;
   st.blinkFrameTs = st.pausedAtMs;
-  st.blinkFromLevel = 0.0f;
-  st.blinkToLevel = 1.0f;
+  st.blinkLevel = 0.0f;
+  gDisplay.animations.start(&st.blinkLevel,
+                                 st.blinkLevel,
+                                 1.0f,
+                                 st.pausedAtMs,
+                                 st.blinkDurationMs,
+                                 easeOut);
   renderAll(st, true, st.pausedAtMs);
 }
 

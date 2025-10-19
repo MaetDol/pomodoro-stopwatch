@@ -69,9 +69,10 @@ constexpr uint32_t CENTER_DISPLAY_MS      = 2000;
 constexpr uint8_t  TIMEOUT_BLINK_COUNT    = 5;
 constexpr uint8_t  OPTION_COUNT           = 4;
 constexpr uint8_t  CENTER_CLEAR_PADDING   = 6;
+constexpr uint8_t  MAX_VALUE_ANIMATIONS   = 6;
 
 constexpr uint8_t OPTIONS[OPTION_COUNT] = {15, 30, 60, 0};
-constexpr float   SETTING_ANIM_EPSILON    = 1e-4f;
+constexpr float   ANIMATION_EPSILON      = 1e-4f;
 
 inline float deg2rad(float d) { return d * (PI / 180.0f); }
 inline float clampf(float v, float a, float b) { return v < a ? a : (v > b ? b : v); }
@@ -100,7 +101,8 @@ float easeLinear(float t);
 
 using EaseFn = float (*)(float);
 
-struct FloatTween {
+struct ValueAnimation {
+  float *target = nullptr;
   float from = 0.0f;
   float to = 0.0f;
   uint32_t start = 0;
@@ -108,45 +110,166 @@ struct FloatTween {
   EaseFn ease = easeLinear;
   bool active = false;
 
-  void snapTo(float value) {
-    from = to = value;
+  void reset() {
+    target = nullptr;
+    from = 0.0f;
+    to = 0.0f;
     start = 0;
     duration = 0;
     ease = easeLinear;
     active = false;
   }
 
-  void startTween(float fromValue, float toValue, uint32_t startMs, uint32_t durationMs, EaseFn easeFn = nullptr) {
+  void begin(float *valuePtr,
+             float fromValue,
+             float toValue,
+             uint32_t startMs,
+             uint32_t durationMs,
+             EaseFn easeFn = nullptr) {
+    if (!valuePtr) {
+      reset();
+      return;
+    }
+
+    target = valuePtr;
     from = fromValue;
     to = toValue;
     start = startMs;
     duration = durationMs;
     ease = easeFn ? easeFn : easeLinear;
-    active = (durationMs > 0) && (fabsf(toValue - fromValue) > SETTING_ANIM_EPSILON);
+
+    float delta = fabsf(toValue - fromValue);
+    active = (durationMs > 0) && (delta > ANIMATION_EPSILON);
     if (!active) {
-      snapTo(toValue);
+      *target = toValue;
+      reset();
+      return;
     }
+
+    *target = fromValue;
   }
 
-  float sample(uint32_t nowMs) {
-    if (!active) {
-      return to;
+  bool update(uint32_t nowMs) {
+    if (!active || !target) {
+      return false;
     }
 
     uint32_t elapsed = (nowMs >= start) ? (nowMs - start) : 0;
-    float t = (duration == 0) ? 1.0f : clampf(static_cast<float>(elapsed) / static_cast<float>(duration), 0.0f, 1.0f);
+    float t = duration == 0 ? 1.0f
+                            : clampf(static_cast<float>(elapsed) / static_cast<float>(duration), 0.0f, 1.0f);
     float eased = ease ? ease(t) : t;
-    float value = lerpf(from, to, eased);
+    *target = lerpf(from, to, eased);
 
-    if (t >= 1.0f - SETTING_ANIM_EPSILON || elapsed >= duration) {
-      snapTo(to);
-      value = to;
+    if (elapsed >= duration || t >= 1.0f - ANIMATION_EPSILON) {
+      *target = to;
+      reset();
+      return false;
     }
 
-    return value;
+    return true;
   }
 
-  bool isActive() const { return active; }
+  void cancel() {
+    reset();
+  }
+
+  bool matches(float *valuePtr) const {
+    return active && target == valuePtr;
+  }
+};
+
+struct ValueAnimationList {
+  ValueAnimation items[MAX_VALUE_ANIMATIONS];
+
+  void clear() {
+    for (auto &item : items) {
+      item.cancel();
+    }
+  }
+
+  ValueAnimation *find(float *valuePtr) {
+    if (!valuePtr) {
+      return nullptr;
+    }
+    for (auto &item : items) {
+      if (item.matches(valuePtr)) {
+        return &item;
+      }
+    }
+    return nullptr;
+  }
+
+  ValueAnimation *allocate() {
+    for (auto &item : items) {
+      if (!item.active) {
+        return &item;
+      }
+    }
+    return nullptr;
+  }
+
+  ValueAnimation *start(float *valuePtr,
+                        float fromValue,
+                        float toValue,
+                        uint32_t startMs,
+                        uint32_t durationMs,
+                        EaseFn easeFn = nullptr) {
+    if (!valuePtr) {
+      return nullptr;
+    }
+
+    ValueAnimation *slot = find(valuePtr);
+    if (!slot) {
+      slot = allocate();
+    } else {
+      slot->cancel();
+    }
+
+    if (!slot) {
+      return nullptr;
+    }
+
+    slot->begin(valuePtr, fromValue, toValue, startMs, durationMs, easeFn);
+    return slot->active ? slot : nullptr;
+  }
+
+  ValueAnimation *startTo(float *valuePtr,
+                          float toValue,
+                          uint32_t startMs,
+                          uint32_t durationMs,
+                          EaseFn easeFn = nullptr) {
+    float fromValue = valuePtr ? *valuePtr : 0.0f;
+    return start(valuePtr, fromValue, toValue, startMs, durationMs, easeFn);
+  }
+
+  bool remove(float *valuePtr) {
+    ValueAnimation *slot = find(valuePtr);
+    if (!slot) {
+      return false;
+    }
+    slot->cancel();
+    return true;
+  }
+
+  bool isActive(float *valuePtr) const {
+    if (!valuePtr) {
+      return false;
+    }
+    for (const auto &item : items) {
+      if (item.active && item.target == valuePtr) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  void updateAll(uint32_t nowMs) {
+    for (auto &item : items) {
+      if (item.active) {
+        item.update(nowMs);
+      }
+    }
+  }
 };
 
 struct PomodoroState {
@@ -161,12 +284,10 @@ struct PomodoroState {
   uint32_t blinkTs = 0;              // 점멸 전환 기준 시각
   uint32_t blinkDurationMs = 0;      // 현재 점멸 단계 유지 시간
   uint32_t blinkFrameTs = 0;         // 점멸 프레임 갱신 시각
-  float blinkFromLevel = 0.0f;       // 점멸 애니메이션 시작 밝기
-  float blinkToLevel = 0.0f;         // 점멸 애니메이션 목표 밝기
+  float blinkLevel = 0.0f;           // 점멸 애니메이션 현재 밝기
   uint32_t lastEncoderMs = 0;        // 인코더 입력이 마지막으로 반영된 시각
   float settingFracCurrent = 0.0f;   // 설정 화면 현재 진행 비율
   float settingFracTarget = 0.0f;    // 설정 화면 목표 진행 비율
-  FloatTween settingTween;           // 설정 다이얼 보간 애니메이션 상태
   uint32_t centerDisplayUntilMs = 0; // 중앙 표시를 유지할 만료 시각
   uint8_t centerDisplayValue = 0;    // 중앙에 표시할 값(분 단위 등)
   bool pendingTimeout = false;       // 타임아웃 진입이 예약되었는지 여부
@@ -190,6 +311,7 @@ struct DisplayDialCache {
 struct DisplayState {
   bool isAwake = true;
   DisplayDialCache dial;
+  ValueAnimationList animations;
 };
 
 extern EncoderState gEncoder;
@@ -260,8 +382,8 @@ inline void resetBlink(PomodoroState &st, uint32_t now) {
   st.blinkOn = false;
   st.blinkDurationMs = 0;
   st.blinkFrameTs = now;
-  st.blinkFromLevel = 0.0f;
-  st.blinkToLevel = 0.0f;
+  st.blinkLevel = 0.0f;
+  gDisplay.animations.remove(&st.blinkLevel);
 }
 
 #endif  // POMODORO_H

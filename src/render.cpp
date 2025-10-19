@@ -102,6 +102,9 @@ void renderAll(PomodoroState &st, bool forceBg, uint32_t now) {
     now = millis();
   }
 
+  float prevSettingFrac = st.settingFracCurrent;
+  gDisplay.animations.updateAll(now);
+
   if (forceBg) {
     resetDisplayCache(gDisplay);
   }
@@ -114,9 +117,8 @@ void renderAll(PomodoroState &st, bool forceBg, uint32_t now) {
     case Mode::SETTING: {
       float minutes = static_cast<float>(currentMinutes(st));
       float totalSeconds = (minutes == 0.0f) ? 60.0f : minutes * 60.0f;
-      float baseFrac = clampf(st.settingFracCurrent, 0.0f, 1.0f);
-      float frac = st.settingTween.sample(now);
-      frac = clampf(frac, 0.0f, 1.0f);
+      float baseFrac = clampf(prevSettingFrac, 0.0f, 1.0f);
+      float frac = clampf(st.settingFracCurrent, 0.0f, 1.0f);
       st.settingFracCurrent = frac;
       float remainingSeconds = frac * (60.0f * 60.0f);
       float baseDegOverride = (!gDisplay.dial.wedgeValid) ? baseFrac * 360.0f : -1.0f;
@@ -136,14 +138,7 @@ void renderAll(PomodoroState &st, bool forceBg, uint32_t now) {
 
       drawRemainingWedge(remaining, total, st.mode == Mode::PAUSED, bgColor);
       if (st.mode == Mode::PAUSED) {
-        uint32_t duration = st.blinkDurationMs ? st.blinkDurationMs
-                                               : (st.blinkOn ? PAUSE_BLINK_WHITE_MS
-                                                             : PAUSE_BLINK_BLACK_MS);
-        uint32_t blinkElapsed = (now >= st.blinkTs) ? (now - st.blinkTs) : 0;
-        float t = duration == 0 ? 1.0f
-                                : clampf(static_cast<float>(blinkElapsed) / static_cast<float>(duration), 0.0f, 1.0f);
-        float eased = easeOut(t);
-        float blinkLevel = lerpf(st.blinkFromLevel, st.blinkToLevel, eased);
+        float blinkLevel = clampf(st.blinkLevel, 0.0f, 1.0f);
         uint16_t pointerColor = blend565(COL_BLACK, COL_WHITE, blinkLevel);
         drawMinuteHand(remaining, total, bgColor, pointerColor, pointerColor);
         drawBlinkingTip(remaining, total, blinkLevel >= 0.5f, bgColor);
