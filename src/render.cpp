@@ -134,6 +134,49 @@ void fillCircleBlend(GFXcanvas16 &canvas,
   }
 }
 
+int16_t resolveCenterFillRadius() {
+  int16_t radius = gDisplay.centerFillRadius;
+  if (radius <= 0) {
+    radius = (gDisplay.centerLastRadius > 0) ? gDisplay.centerLastRadius
+                                             : CENTER_FILL_DEFAULT_RADIUS;
+  }
+  if (radius > WEDGE_RADIUS - 4) {
+    radius = WEDGE_RADIUS - 4;
+  }
+  return radius;
+}
+
+void drawCenterFillOverlay(uint16_t bgColor) {
+  int16_t radius = resolveCenterFillRadius();
+  if (radius <= 0) {
+    return;
+  }
+
+  gCanvas.fillCircle(CX, CY, radius, bgColor);
+
+  float level = clampf(gDisplay.centerFillLevel, 0.0f, 1.0f);
+  if (!gDisplay.dial.wedgeValid || level <= ANIMATION_EPSILON) {
+    return;
+  }
+
+  float endDeg = clampf(gDisplay.dial.wedgeEndDeg, 0.0f, 360.0f);
+  if (endDeg <= ANGLE_EPS) {
+    return;
+  }
+
+  uint16_t fillColor = blend565(bgColor, gDisplay.centerFillColor, level);
+  fillSector(gCanvas, CX, CY, radius, 0.0f, endDeg, fillColor, 1.0f);
+
+  if (radius > 1) {
+    int16_t arcInner = radius - 3;
+    if (arcInner < 1) {
+      arcInner = 1;
+    }
+    uint16_t arcColor = blend565(bgColor, COL_RED_DARK, level);
+    fillArc(gCanvas, CX, CY, arcInner, radius, 0.0f, endDeg, arcColor, 1.0f);
+  }
+}
+
 }  // namespace
 
 void renderAll(PomodoroState &st, bool forceBg, uint32_t now) {
@@ -179,6 +222,7 @@ void renderAll(PomodoroState &st, bool forceBg, uint32_t now) {
       float remaining = static_cast<float>(computeRemainingMs(st, effectiveNow)) / 1000.0f;
 
       drawRemainingWedge(remaining, total, st.mode == Mode::PAUSED, bgColor);
+      drawCenterFillOverlay(bgColor);
       if (st.mode == Mode::PAUSED) {
         float blinkLevel = clampf(st.blinkLevel, 0.0f, 1.0f);
         uint16_t pointerColor = blend565(COL_BLACK, COL_WHITE, blinkLevel);
@@ -384,6 +428,7 @@ void drawCenterText(const String &s, uint16_t bg) {
   int16_t y = CY - static_cast<int16_t>(h) / 2;
   float radius = static_cast<float>((w > h ? w : h)) / 1.2f + CENTER_CLEAR_PADDING;
   int16_t radiusPx = static_cast<int16_t>(lrintf(radius));
+  gDisplay.centerLastRadius = radiusPx;
   float fade = clampf(gDisplay.centerFadeLevel, 0.0f, 1.0f);
   if (fade >= 1.0f - ANIMATION_EPSILON) {
     gCanvas.fillCircle(CX, CY, radiusPx, bg);
@@ -391,6 +436,36 @@ void drawCenterText(const String &s, uint16_t bg) {
     fillCircleBlend(gCanvas, CX, CY, radiusPx, bg, fade);
   }
   gCanvas.setCursor(x, y);
+}
+
+void startCenterFill(uint16_t color,
+                     uint32_t startMs,
+                     uint32_t durationMs,
+                     int16_t radiusOverride) {
+  if (startMs == UINT32_MAX) {
+    startMs = millis();
+  }
+
+  int16_t radius = radiusOverride > 0 ? radiusOverride
+                                      : (gDisplay.centerLastRadius > 0
+                                             ? gDisplay.centerLastRadius
+                                             : CENTER_FILL_DEFAULT_RADIUS);
+  if (radius > WEDGE_RADIUS - 4) {
+    radius = WEDGE_RADIUS - 4;
+  } else if (radius <= 0) {
+    radius = CENTER_FILL_DEFAULT_RADIUS;
+  }
+
+  gDisplay.centerFillColor = color;
+  gDisplay.centerFillRadius = radius;
+  gDisplay.animations.remove(&gDisplay.centerFillLevel);
+  gDisplay.centerFillLevel = 0.0f;
+  gDisplay.animations.start(&gDisplay.centerFillLevel,
+                            0.0f,
+                            1.0f,
+                            startMs,
+                            durationMs,
+                            easeOut);
 }
 
 void fillArc(Adafruit_GFX& gfx,

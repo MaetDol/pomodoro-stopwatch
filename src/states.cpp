@@ -26,6 +26,7 @@ void enterSetting(PomodoroState &st, bool preserveDial) {
   st.lastInputMs = now;
   st.lastEncoderMs = now;
   resetBlink(st, now);
+  resetCenterFill(gDisplay);
 
   uint8_t minutes = currentMinutes(st);
   float seconds = static_cast<float>(minutes) * 60.0f;

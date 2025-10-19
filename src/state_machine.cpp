@@ -23,6 +23,8 @@ void updateStateMachine(PomodoroState &st, uint32_t now) {
         st.blinkTs = now;
         gDisplay.animations.remove(&st.settingFracCurrent);
         st.mode = Mode::RUNNING;
+        resetCenterFade(gDisplay);
+        startCenterFill(COL_RED, now);
         resetDisplayCache(gDisplay);
         renderAll(st, true, now);
       }

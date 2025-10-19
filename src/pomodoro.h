@@ -67,9 +67,11 @@ constexpr uint32_t ENCODER_THROTTLE_MS    = 1000;
 constexpr uint32_t SETTING_ANIM_DURATION_MS = 300;
 constexpr uint32_t CENTER_DISPLAY_MS      = 2000;
 constexpr uint32_t CENTER_FADE_IN_MS      = 220;  // ms duration for center text background fade-in
+constexpr uint32_t CENTER_FILL_FADE_MS    = 260;  // ms duration for center fill fade-in
 constexpr uint8_t  TIMEOUT_BLINK_COUNT    = 5;
 constexpr uint8_t  OPTION_COUNT           = 4;
 constexpr uint8_t  CENTER_CLEAR_PADDING   = 6;
+constexpr int16_t  CENTER_FILL_DEFAULT_RADIUS = WEDGE_RADIUS / 2;
 constexpr uint8_t  MAX_VALUE_ANIMATIONS   = 6;
 
 constexpr uint8_t OPTIONS[OPTION_COUNT] = {15, 30, 60, 0};
@@ -316,6 +318,10 @@ struct DisplayState {
   float centerFadeLevel = 1.0f;   // 0.0 → transparent background, 1.0 → solid
   uint16_t centerFadeBg = COL_BG;  // desired background color for fade
   String centerLastText;           // cache to detect text changes and restart fade
+  float centerFillLevel = 0.0f;    // 0.0 → invisible, 1.0 → fully filled
+  uint16_t centerFillColor = COL_RED;
+  int16_t centerFillRadius = CENTER_FILL_DEFAULT_RADIUS;
+  int16_t centerLastRadius = 0;    // radius used during the last center text draw
 };
 
 extern EncoderState gEncoder;
@@ -353,6 +359,11 @@ void drawBlinkingTip(float remainingSec, float totalSec, bool on, uint16_t bgCol
 void showCenterText(const String &s, uint8_t textSize, uint16_t color = COL_RED, uint16_t bg = COL_BG);
 void showCenterText(const char *s, uint8_t textSize, uint16_t color = COL_RED, uint16_t bg = COL_BG);
 void drawCenterText(const String &s, uint16_t bg = COL_BG);
+void drawCenterFillOverlay(uint16_t bgColor = COL_BG);
+void startCenterFill(uint16_t color,
+                     uint32_t startMs = UINT32_MAX,
+                     uint32_t durationMs = CENTER_FILL_FADE_MS,
+                     int16_t radiusOverride = -1);
 void fillArc(Adafruit_GFX& gfx,
              int16_t cx, int16_t cy,
              int16_t r_inner, int16_t r_outer,
@@ -395,6 +406,13 @@ inline void resetCenterFade(DisplayState &disp) {
   disp.centerFadeLevel = 0.0f;
   disp.centerFadeBg = COL_BG;
   disp.centerLastText = "";
+}
+
+inline void resetCenterFill(DisplayState &disp) {
+  disp.animations.remove(&disp.centerFillLevel);
+  disp.centerFillLevel = 0.0f;
+  disp.centerFillColor = COL_RED;
+  disp.centerFillRadius = CENTER_FILL_DEFAULT_RADIUS;
 }
 
 #endif  // POMODORO_H
