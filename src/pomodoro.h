@@ -45,6 +45,7 @@ constexpr int16_t H = 240;
 constexpr int16_t CX = W / 2;
 constexpr int16_t CY = H / 2;
 constexpr int16_t R_OUT = 116;
+constexpr int16_t WEDGE_RADIUS = R_OUT - 6;
 
 constexpr uint16_t COL_PRIMARY = rgb565(255, 107, 87);
 

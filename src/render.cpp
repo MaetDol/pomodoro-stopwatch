@@ -19,7 +19,6 @@ void presentCanvas() {
 
 constexpr float ANGLE_EPS = 0.25f;
 constexpr float POINTER_RESTORE_SPAN = 2.5f;
-constexpr int16_t WEDGE_RADIUS = R_OUT - 6;
 constexpr int16_t ARC_INNER = WEDGE_RADIUS - 2;
 constexpr int16_t ARC_OUTER = WEDGE_RADIUS;
 
@@ -146,7 +145,7 @@ int16_t resolveCenterFillRadius() {
   return radius;
 }
 
-void drawCenterFillOverlay(uint16_t bgColor) {
+void drawCenterFillOverlayInternal(uint16_t bgColor) {
   int16_t radius = resolveCenterFillRadius();
   if (radius <= 0) {
     return;
@@ -178,6 +177,10 @@ void drawCenterFillOverlay(uint16_t bgColor) {
 }
 
 }  // namespace
+
+void drawCenterFillOverlay(uint16_t bgColor) {
+  drawCenterFillOverlayInternal(bgColor);
+}
 
 void renderAll(PomodoroState &st, bool forceBg, uint32_t now) {
 
