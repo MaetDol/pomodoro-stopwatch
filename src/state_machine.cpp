@@ -20,6 +20,8 @@ void updateStateMachine(PomodoroState &st, uint32_t now) {
         st.stateTs = now;
         st.blinkTs = now;
         st.mode = Mode::RUNNING;
+        resetDisplayCache(gDisplay);
+        renderAll(st, true, now);
       }
       break;
     case Mode::RUNNING: {
