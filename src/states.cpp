@@ -87,8 +87,13 @@ void enterPaused(PomodoroState &st) {
   st.blinkOn = true;
   st.blinkDurationMs = PAUSE_BLINK_WHITE_MS;
   st.blinkFrameTs = st.pausedAtMs;
-  st.blinkFromLevel = 0.0f;
-  st.blinkToLevel = 1.0f;
+  st.blinkLevel = 0.0f;
+  gDisplay.fadeAnimations.start(&st.blinkLevel,
+                                 st.blinkLevel,
+                                 1.0f,
+                                 st.pausedAtMs,
+                                 st.blinkDurationMs,
+                                 easeOut);
   renderAll(st, true, st.pausedAtMs);
 }
 
