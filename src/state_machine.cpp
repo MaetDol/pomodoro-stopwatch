@@ -13,7 +13,8 @@ void updateStateMachine(PomodoroState &st, uint32_t now) {
       }
 
       renderAll(st, false, now);
-      if (now > st.centerDisplayUntilMs) {
+      if (st.centerDisplayUntilMs != 0 &&
+          static_cast<int32_t>(now - st.centerDisplayUntilMs) >= 0) {
         st.centerDisplayUntilMs = 0;
         st.centerDisplayValue = 0;
         st.pendingTimeout = false;
@@ -31,14 +32,15 @@ void updateStateMachine(PomodoroState &st, uint32_t now) {
       uint32_t elapsed = computeElapsedMs(st, now);
       if (elapsed >= st.runDurationMs) {
         enterTimeout(st);
-      } else if (now - st.blinkTs >= RUN_REPAINT_MS) {
+      } else if (elapsedSince(st.blinkTs, now) >= RUN_REPAINT_MS) {
         st.blinkTs = now;
         renderAll(st, false, now);
       }
       break;
     }
     case Mode::PAUSED: {
-      if (now - st.pausedAtMs >= PAUSE_SLEEP_DELAY_MS) {
+      uint32_t pausedElapsed = (st.pausedAtMs == 0) ? 0 : elapsedSince(st.pausedAtMs, now);
+      if (st.pausedAtMs != 0 && pausedElapsed >= PAUSE_SLEEP_DELAY_MS) {
         enterTimeout(st);
         break;
       }
@@ -47,7 +49,7 @@ void updateStateMachine(PomodoroState &st, uint32_t now) {
       uint32_t duration = st.blinkDurationMs > 0 ? st.blinkDurationMs
                                                 : (st.blinkOn ? PAUSE_BLINK_WHITE_MS
                                                               : PAUSE_BLINK_BLACK_MS);
-      if (now - st.blinkTs >= duration) {
+      if (elapsedSince(st.blinkTs, now) >= duration) {
         st.blinkTs = now;
         st.blinkFromLevel = st.blinkToLevel;
         st.blinkOn = !st.blinkOn;
@@ -57,7 +59,7 @@ void updateStateMachine(PomodoroState &st, uint32_t now) {
         needsRender = true;
       }
 
-      if (now - st.blinkFrameTs >= PAUSE_BLINK_FRAME_MS) {
+      if (elapsedSince(st.blinkFrameTs, now) >= PAUSE_BLINK_FRAME_MS) {
         st.blinkFrameTs = now;
         needsRender = true;
       }

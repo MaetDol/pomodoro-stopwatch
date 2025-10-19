@@ -139,7 +139,7 @@ void renderAll(PomodoroState &st, bool forceBg, uint32_t now) {
         uint32_t duration = st.blinkDurationMs ? st.blinkDurationMs
                                                : (st.blinkOn ? PAUSE_BLINK_WHITE_MS
                                                              : PAUSE_BLINK_BLACK_MS);
-        uint32_t blinkElapsed = (now >= st.blinkTs) ? (now - st.blinkTs) : 0;
+        uint32_t blinkElapsed = elapsedSince(st.blinkTs, now);
         float t = duration == 0 ? 1.0f
                                 : clampf(static_cast<float>(blinkElapsed) / static_cast<float>(duration), 0.0f, 1.0f);
         float eased = easeOut(t);

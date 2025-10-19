@@ -204,6 +204,7 @@ float cubicBezierEase(float x, float x1, float y1, float x2, float y2);
 
 uint8_t currentMinutes(const PomodoroState &st);
 uint32_t computeElapsedMs(const PomodoroState &st, uint32_t now);
+uint32_t elapsedSince(uint32_t since, uint32_t now);
 uint32_t computeRemainingMs(const PomodoroState &st, uint32_t now);
 
 void handleEncoderInput(PomodoroState &st);

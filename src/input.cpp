@@ -6,7 +6,8 @@ void handleEncoderInput(PomodoroState &st) {
   int8_t steps;
   noInterrupts();
   steps = gEncoder.steps;
-  bool throttleExpired = (st.lastEncoderMs == 0) || (now - st.lastEncoderMs >= ENCODER_THROTTLE_MS);
+  bool throttleExpired = (st.lastEncoderMs == 0) ||
+                         (elapsedSince(st.lastEncoderMs, now) >= ENCODER_THROTTLE_MS);
   gEncoder.steps = 0;
   if (!throttleExpired) {
     steps = 0;

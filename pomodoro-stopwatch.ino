@@ -97,9 +97,9 @@ void setup() {
 }
 
 void loop() {
-  uint32_t now = millis();
   handleEncoderInput(gState);
   handleButtonInput(gState);
+  uint32_t now = millis();
   updateStateMachine(gState, now);
 }
 

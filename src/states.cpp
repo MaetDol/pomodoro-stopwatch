@@ -96,7 +96,7 @@ namespace {
 
 bool waitForEncoderDuringTimeout(PomodoroState &st, uint32_t durationMs) {
   uint32_t start = millis();
-  while (millis() - start < durationMs) {
+  while (elapsedSince(start, millis()) < durationMs) {
     handleEncoderInput(st);
     if (st.mode == Mode::SETTING) {
       return true;
