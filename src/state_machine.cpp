@@ -1,7 +1,7 @@
 #include "pomodoro.h"
 
 void updateStateMachine(PomodoroState &st, uint32_t now) {
-  gDisplay.fadeAnimations.updateAll(now);
+  gDisplay.animations.updateAll(now);
 
   switch (st.mode) {
     case Mode::SETTING:
@@ -21,6 +21,7 @@ void updateStateMachine(PomodoroState &st, uint32_t now) {
         st.pendingTimeout = false;
         st.stateTs = now;
         st.blinkTs = now;
+        gDisplay.animations.remove(&st.settingFracCurrent);
         st.mode = Mode::RUNNING;
         resetDisplayCache(gDisplay);
         renderAll(st, true, now);
@@ -51,13 +52,13 @@ void updateStateMachine(PomodoroState &st, uint32_t now) {
       uint32_t duration = st.blinkDurationMs > 0 ? st.blinkDurationMs
                                                 : (st.blinkOn ? PAUSE_BLINK_WHITE_MS
                                                               : PAUSE_BLINK_BLACK_MS);
-      bool animActive = gDisplay.fadeAnimations.isActive(&st.blinkLevel);
+      bool animActive = gDisplay.animations.isActive(&st.blinkLevel);
       if (!animActive && now - st.blinkTs >= duration) {
         st.blinkTs = now;
         st.blinkOn = !st.blinkOn;
         st.blinkDurationMs = st.blinkOn ? PAUSE_BLINK_WHITE_MS : PAUSE_BLINK_BLACK_MS;
         st.blinkFrameTs = now;
-        gDisplay.fadeAnimations.start(&st.blinkLevel,
+        gDisplay.animations.start(&st.blinkLevel,
                                        st.blinkLevel,
                                        st.blinkOn ? 1.0f : 0.0f,
                                        now,

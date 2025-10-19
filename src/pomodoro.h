@@ -69,11 +69,10 @@ constexpr uint32_t CENTER_DISPLAY_MS      = 2000;
 constexpr uint8_t  TIMEOUT_BLINK_COUNT    = 5;
 constexpr uint8_t  OPTION_COUNT           = 4;
 constexpr uint8_t  CENTER_CLEAR_PADDING   = 6;
-constexpr uint8_t  MAX_FADE_ANIMATIONS    = 6;
+constexpr uint8_t  MAX_VALUE_ANIMATIONS   = 6;
 
 constexpr uint8_t OPTIONS[OPTION_COUNT] = {15, 30, 60, 0};
-constexpr float   SETTING_ANIM_EPSILON    = 1e-4f;
-constexpr float   FADE_ANIM_EPSILON       = 1e-4f;
+constexpr float   ANIMATION_EPSILON      = 1e-4f;
 
 inline float deg2rad(float d) { return d * (PI / 180.0f); }
 inline float clampf(float v, float a, float b) { return v < a ? a : (v > b ? b : v); }
@@ -102,56 +101,7 @@ float easeLinear(float t);
 
 using EaseFn = float (*)(float);
 
-struct FloatTween {
-  float from = 0.0f;
-  float to = 0.0f;
-  uint32_t start = 0;
-  uint32_t duration = 0;
-  EaseFn ease = easeLinear;
-  bool active = false;
-
-  void snapTo(float value) {
-    from = to = value;
-    start = 0;
-    duration = 0;
-    ease = easeLinear;
-    active = false;
-  }
-
-  void startTween(float fromValue, float toValue, uint32_t startMs, uint32_t durationMs, EaseFn easeFn = nullptr) {
-    from = fromValue;
-    to = toValue;
-    start = startMs;
-    duration = durationMs;
-    ease = easeFn ? easeFn : easeLinear;
-    active = (durationMs > 0) && (fabsf(toValue - fromValue) > SETTING_ANIM_EPSILON);
-    if (!active) {
-      snapTo(toValue);
-    }
-  }
-
-  float sample(uint32_t nowMs) {
-    if (!active) {
-      return to;
-    }
-
-    uint32_t elapsed = (nowMs >= start) ? (nowMs - start) : 0;
-    float t = (duration == 0) ? 1.0f : clampf(static_cast<float>(elapsed) / static_cast<float>(duration), 0.0f, 1.0f);
-    float eased = ease ? ease(t) : t;
-    float value = lerpf(from, to, eased);
-
-    if (t >= 1.0f - SETTING_ANIM_EPSILON || elapsed >= duration) {
-      snapTo(to);
-      value = to;
-    }
-
-    return value;
-  }
-
-  bool isActive() const { return active; }
-};
-
-struct FadeAnimation {
+struct ValueAnimation {
   float *target = nullptr;
   float from = 0.0f;
   float to = 0.0f;
@@ -189,7 +139,7 @@ struct FadeAnimation {
     ease = easeFn ? easeFn : easeLinear;
 
     float delta = fabsf(toValue - fromValue);
-    active = (durationMs > 0) && (delta > FADE_ANIM_EPSILON);
+    active = (durationMs > 0) && (delta > ANIMATION_EPSILON);
     if (!active) {
       *target = toValue;
       reset();
@@ -210,7 +160,7 @@ struct FadeAnimation {
     float eased = ease ? ease(t) : t;
     *target = lerpf(from, to, eased);
 
-    if (elapsed >= duration || t >= 1.0f - FADE_ANIM_EPSILON) {
+    if (elapsed >= duration || t >= 1.0f - ANIMATION_EPSILON) {
       *target = to;
       reset();
       return false;
@@ -228,8 +178,8 @@ struct FadeAnimation {
   }
 };
 
-struct FadeAnimationList {
-  FadeAnimation items[MAX_FADE_ANIMATIONS];
+struct ValueAnimationList {
+  ValueAnimation items[MAX_VALUE_ANIMATIONS];
 
   void clear() {
     for (auto &item : items) {
@@ -237,7 +187,7 @@ struct FadeAnimationList {
     }
   }
 
-  FadeAnimation *find(float *valuePtr) {
+  ValueAnimation *find(float *valuePtr) {
     if (!valuePtr) {
       return nullptr;
     }
@@ -249,7 +199,7 @@ struct FadeAnimationList {
     return nullptr;
   }
 
-  FadeAnimation *allocate() {
+  ValueAnimation *allocate() {
     for (auto &item : items) {
       if (!item.active) {
         return &item;
@@ -258,17 +208,17 @@ struct FadeAnimationList {
     return nullptr;
   }
 
-  FadeAnimation *start(float *valuePtr,
-                       float fromValue,
-                       float toValue,
-                       uint32_t startMs,
-                       uint32_t durationMs,
-                       EaseFn easeFn = nullptr) {
+  ValueAnimation *start(float *valuePtr,
+                        float fromValue,
+                        float toValue,
+                        uint32_t startMs,
+                        uint32_t durationMs,
+                        EaseFn easeFn = nullptr) {
     if (!valuePtr) {
       return nullptr;
     }
 
-    FadeAnimation *slot = find(valuePtr);
+    ValueAnimation *slot = find(valuePtr);
     if (!slot) {
       slot = allocate();
     } else {
@@ -283,17 +233,17 @@ struct FadeAnimationList {
     return slot->active ? slot : nullptr;
   }
 
-  FadeAnimation *startTo(float *valuePtr,
-                         float toValue,
-                         uint32_t startMs,
-                         uint32_t durationMs,
-                         EaseFn easeFn = nullptr) {
+  ValueAnimation *startTo(float *valuePtr,
+                          float toValue,
+                          uint32_t startMs,
+                          uint32_t durationMs,
+                          EaseFn easeFn = nullptr) {
     float fromValue = valuePtr ? *valuePtr : 0.0f;
     return start(valuePtr, fromValue, toValue, startMs, durationMs, easeFn);
   }
 
   bool remove(float *valuePtr) {
-    FadeAnimation *slot = find(valuePtr);
+    ValueAnimation *slot = find(valuePtr);
     if (!slot) {
       return false;
     }
@@ -338,7 +288,6 @@ struct PomodoroState {
   uint32_t lastEncoderMs = 0;        // 인코더 입력이 마지막으로 반영된 시각
   float settingFracCurrent = 0.0f;   // 설정 화면 현재 진행 비율
   float settingFracTarget = 0.0f;    // 설정 화면 목표 진행 비율
-  FloatTween settingTween;           // 설정 다이얼 보간 애니메이션 상태
   uint32_t centerDisplayUntilMs = 0; // 중앙 표시를 유지할 만료 시각
   uint8_t centerDisplayValue = 0;    // 중앙에 표시할 값(분 단위 등)
   bool pendingTimeout = false;       // 타임아웃 진입이 예약되었는지 여부
@@ -362,7 +311,7 @@ struct DisplayDialCache {
 struct DisplayState {
   bool isAwake = true;
   DisplayDialCache dial;
-  FadeAnimationList fadeAnimations;
+  ValueAnimationList animations;
 };
 
 extern EncoderState gEncoder;
@@ -434,7 +383,7 @@ inline void resetBlink(PomodoroState &st, uint32_t now) {
   st.blinkDurationMs = 0;
   st.blinkFrameTs = now;
   st.blinkLevel = 0.0f;
-  gDisplay.fadeAnimations.remove(&st.blinkLevel);
+  gDisplay.animations.remove(&st.blinkLevel);
 }
 
 #endif  // POMODORO_H

@@ -102,7 +102,8 @@ void renderAll(PomodoroState &st, bool forceBg, uint32_t now) {
     now = millis();
   }
 
-  gDisplay.fadeAnimations.updateAll(now);
+  float prevSettingFrac = st.settingFracCurrent;
+  gDisplay.animations.updateAll(now);
 
   if (forceBg) {
     resetDisplayCache(gDisplay);
@@ -116,9 +117,8 @@ void renderAll(PomodoroState &st, bool forceBg, uint32_t now) {
     case Mode::SETTING: {
       float minutes = static_cast<float>(currentMinutes(st));
       float totalSeconds = (minutes == 0.0f) ? 60.0f : minutes * 60.0f;
-      float baseFrac = clampf(st.settingFracCurrent, 0.0f, 1.0f);
-      float frac = st.settingTween.sample(now);
-      frac = clampf(frac, 0.0f, 1.0f);
+      float baseFrac = clampf(prevSettingFrac, 0.0f, 1.0f);
+      float frac = clampf(st.settingFracCurrent, 0.0f, 1.0f);
       st.settingFracCurrent = frac;
       float remainingSeconds = frac * (60.0f * 60.0f);
       float baseDegOverride = (!gDisplay.dial.wedgeValid) ? baseFrac * 360.0f : -1.0f;
