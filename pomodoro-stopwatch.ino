@@ -72,9 +72,10 @@ void setup() {
   btnDebounce.interval(15);
 
   SPI.begin(TFT_SCL, -1, TFT_SDA, TFT_CS);
-  SPI.setFrequency(40000000); // 20MHz
+  SPI.setFrequency(40000000); 
 
   tft.begin();
+  tft.setSPISpeed(40000000);
 
   tft.setRotation(0);
   tft.fillScreen(COL_BG);
