@@ -106,15 +106,14 @@ void renderAll(PomodoroState &st, bool forceBg, uint32_t now) {
     case Mode::SETTING: {
       float minutes = static_cast<float>(currentMinutes(st));
       float totalSeconds = (minutes == 0.0f) ? 60.0f : minutes * 60.0f;
-      float frac = st.settingFracTarget;
-      frac = st.settingTween.sample(now);
+      float baseFrac = clampf(st.settingFracCurrent, 0.0f, 1.0f);
+      float frac = st.settingTween.sample(now);
       frac = clampf(frac, 0.0f, 1.0f);
       st.settingFracCurrent = frac;
       float remainingSeconds = frac * (60.0f * 60.0f);
-      drawRemainingWedge(remainingSeconds, totalSeconds, false, bgColor);
-      if (now < st.centerDisplayUntilMs) {
-        showCenterText(String(st.centerDisplayValue), 4);
-      }
+      float baseDegOverride = (!gDisplay.dial.wedgeValid) ? baseFrac * 360.0f : -1.0f;
+      drawRemainingWedge(remainingSeconds, totalSeconds, false, bgColor, baseDegOverride);
+      showCenterText(String(st.centerDisplayValue), 4);
       break;
     }
     case Mode::RUNNING:
@@ -166,7 +165,11 @@ void drawDialBackground(uint16_t bgColor, bool clearAll) {
   }
 }
 
-void drawRemainingWedge(float remainingSec, float totalSec, bool paused, uint16_t bgColor) {
+void drawRemainingWedge(float remainingSec,
+                        float totalSec,
+                        bool paused,
+                        uint16_t bgColor,
+                        float baseDegOverride) {
   if (totalSec <= 0.0f) {
     return;
   }
@@ -177,12 +180,24 @@ void drawRemainingWedge(float remainingSec, float totalSec, bool paused, uint16_
   float frac = hourScaledFraction(remainingSec);
   float newEnd = 360.0f * frac;
   uint16_t color = paused ? COL_LIGHTRED : COL_RED;
-  bool colorChanged = !cache.wedgeValid || cache.wedgeColor != color;
+  bool colorChanged = cache.wedgeColor != color;
+  bool hasBase = baseDegOverride >= 0.0f;
+  float baseDeg = hasBase ? clampf(baseDegOverride, 0.0f, 360.0f) : 0.0f;
 
+  Serial.println("drawRemainingWedge: remainingSec=" + String(remainingSec) +
+                 " totalSec=" + String(totalSec) +
+                 " newEnd=" + String(newEnd) +
+                 " baseDeg=" + String(baseDeg) +
+                 " colorChanged=" + String(colorChanged) +
+                 " cache.wedgeValid=" + String(cache.wedgeValid));
   if (!cache.wedgeValid || colorChanged) {
     clearDialArea(bgColor);
-    if (newEnd > ANGLE_EPS) {
-      paintRingSegment(0.0f, newEnd, color, COL_RED_DARK);
+    if (hasBase && baseDeg > ANGLE_EPS) {
+      paintRingSegment(0.0f, baseDeg, color, COL_RED_DARK);
+    }
+    float segmentStart = hasBase ? baseDeg : 0.0f;
+    if (newEnd > segmentStart + ANGLE_EPS) {
+      paintRingSegment(segmentStart, newEnd, color, COL_RED_DARK);
     }
   } else {
     if (newEnd + ANGLE_EPS < cache.wedgeEndDeg) {

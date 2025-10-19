@@ -26,7 +26,7 @@ void handleEncoderInput(PomodoroState &st) {
     st.optionIndex = (st.optionIndex + OPTION_COUNT - 1) % OPTION_COUNT;
   }
 
-  enterSetting(st);
+  enterSetting(st, true);
 }
 
 void handleButtonInput(PomodoroState &st) {

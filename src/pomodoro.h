@@ -82,7 +82,13 @@ struct PomodoroState;
 
 inline void resetBlink(PomodoroState &st, uint32_t now);
 
-enum class Mode { SETTING, RUNNING, PAUSED, TIMEOUT, SLEEPING };
+enum class Mode {
+  SETTING,  // Rotary selection and dial animation while duration is being configured.
+  RUNNING,  // Countdown in progress; render loop updates remaining time once per second.
+  PAUSED,   // Countdown frozen with blinking indicator until resume or inactivity timeout.
+  TIMEOUT,  // Session finished; performs completion blink sequence before sleeping.
+  SLEEPING  // Display off and ESP32 in light sleep awaiting wake events.
+};
 
 struct EncoderState {
   volatile int8_t steps = 0;
@@ -144,26 +150,26 @@ struct FloatTween {
 };
 
 struct PomodoroState {
-  Mode mode = Mode::SETTING;
-  uint8_t optionIndex = 0;
-  uint32_t lastInputMs = 0;
-  uint32_t stateTs = 0;
-  uint32_t runStartMs = 0;
-  uint32_t runDurationMs = 0;
-  uint32_t pausedAtMs = 0;
-  bool blinkOn = false;
-  uint32_t blinkTs = 0;
-  uint32_t blinkDurationMs = 0;
-  uint32_t blinkFrameTs = 0;
-  float blinkFromLevel = 0.0f;
-  float blinkToLevel = 0.0f;
-  uint32_t lastEncoderMs = 0;
-  float settingFracCurrent = 0.0f;
-  float settingFracTarget = 0.0f;
-  FloatTween settingTween;
-  uint32_t centerDisplayUntilMs = 0;
-  uint8_t centerDisplayValue = 0;
-  bool pendingTimeout = false;
+  Mode mode = Mode::SETTING;          // 현재 동작 모드
+  uint8_t optionIndex = 0;           // 선택된 분 옵션 인덱스
+  uint32_t lastInputMs = 0;          // 마지막 사용자 입력 시각
+  uint32_t stateTs = 0;              // 해당 모드에 진입한 시각
+  uint32_t runStartMs = 0;           // 카운트다운이 시작된 시각
+  uint32_t runDurationMs = 0;        // 선택된 총 카운트다운 시간(ms)
+  uint32_t pausedAtMs = 0;           // 일시정지에 들어간 시각
+  bool blinkOn = false;              // 점멸 표시가 현재 켜져 있는지 여부
+  uint32_t blinkTs = 0;              // 점멸 전환 기준 시각
+  uint32_t blinkDurationMs = 0;      // 현재 점멸 단계 유지 시간
+  uint32_t blinkFrameTs = 0;         // 점멸 프레임 갱신 시각
+  float blinkFromLevel = 0.0f;       // 점멸 애니메이션 시작 밝기
+  float blinkToLevel = 0.0f;         // 점멸 애니메이션 목표 밝기
+  uint32_t lastEncoderMs = 0;        // 인코더 입력이 마지막으로 반영된 시각
+  float settingFracCurrent = 0.0f;   // 설정 화면 현재 진행 비율
+  float settingFracTarget = 0.0f;    // 설정 화면 목표 진행 비율
+  FloatTween settingTween;           // 설정 다이얼 보간 애니메이션 상태
+  uint32_t centerDisplayUntilMs = 0; // 중앙 표시를 유지할 만료 시각
+  uint8_t centerDisplayValue = 0;    // 중앙에 표시할 값(분 단위 등)
+  bool pendingTimeout = false;       // 타임아웃 진입이 예약되었는지 여부
 };
 
 struct DisplayDialCache {
@@ -204,7 +210,7 @@ void handleEncoderInput(PomodoroState &st);
 void handleButtonInput(PomodoroState &st);
 void updateStateMachine(PomodoroState &st, uint32_t now);
 
-void enterSetting(PomodoroState &st);
+void enterSetting(PomodoroState &st, bool preserveDial = false);
 void resumeRun(PomodoroState &st);
 void enterPaused(PomodoroState &st);
 void enterTimeout(PomodoroState &st);
@@ -212,7 +218,7 @@ void goToSleep(PomodoroState &st);
 
 void renderAll(PomodoroState &st, bool forceBg = false, uint32_t now = UINT32_MAX);
 void drawDialBackground(uint16_t bgColor = COL_BG, bool clearAll = false);
-void drawRemainingWedge(float remainingSec, float totalSec, bool paused, uint16_t bgColor = COL_BG);
+void drawRemainingWedge(float remainingSec, float totalSec, bool paused, uint16_t bgColor = COL_BG, float baseDegOverride = -1.0f);
 void drawMinuteHand(float remainingSec, float totalSec,
                     uint16_t bgColor = COL_BG,
                     uint16_t pointerColor = COL_RED_DARK,

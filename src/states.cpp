@@ -17,7 +17,7 @@ void startRunForMinutes(PomodoroState &st, uint8_t minutes, uint32_t now) {
 
 }  // namespace
 
-void enterSetting(PomodoroState &st) {
+void enterSetting(PomodoroState &st, bool preserveDial) {
   uint32_t now = millis();
 
   st.mode = Mode::SETTING;
@@ -30,9 +30,10 @@ void enterSetting(PomodoroState &st) {
   float seconds = static_cast<float>(minutes) * 60.0f;
   float targetFrac = clampf(seconds / (60.0f * 60.0f), 0.0f, 1.0f);
 
+  float startFrac = preserveDial ? clampf(st.settingFracCurrent, 0.0f, 1.0f) : 0.0f;
   st.settingFracTarget = targetFrac;
-  st.settingFracCurrent = 0.0f;
-  st.settingTween.startTween(0.0f, targetFrac, now, SETTING_ANIM_DURATION_MS, easeOut);
+  st.settingFracCurrent = startFrac;
+  st.settingTween.startTween(startFrac, targetFrac, now, SETTING_ANIM_DURATION_MS, easeOut);
 
   st.centerDisplayValue = minutes;
   st.centerDisplayUntilMs = now + CENTER_DISPLAY_MS;
