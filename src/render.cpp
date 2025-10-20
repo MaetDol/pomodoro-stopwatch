@@ -182,13 +182,13 @@ void renderAll(PomodoroState &st, bool forceBg, uint32_t now) {
       if (st.mode == Mode::PAUSED) {
         float blinkLevel = clampf(st.blinkLevel, 0.0f, 1.0f);
         uint16_t pointerColor = blend565(COL_BLACK, COL_WHITE, blinkLevel);
-        drawMinuteHand(remaining, total, bgColor, pointerColor, pointerColor);
+        drawMinuteHand(remaining, total, bgColor, pointerColor);
         drawBlinkingTip(remaining, total, blinkLevel >= 0.5f, bgColor);
         uint32_t remainingMs = computeRemainingMs(st, effectiveNow);
         uint32_t remainingMin = (remainingMs + 59999UL) / 60000UL;
         showCenterText(String(remainingMin), 4, COL_RED, bgColor);
       } else {
-        drawMinuteHand(remaining, total, bgColor, COL_RED_DARK, COL_RED);
+        drawMinuteHand(remaining, total, bgColor, COL_RED_DARK);
         drawBlinkingTip(remaining, total, false, bgColor);
       }
       break;
@@ -251,7 +251,7 @@ void drawRemainingWedge(float remainingSec,
   cache.wedgeColor = color;
 }
 
-void drawMinuteHand(float remainingSec, float totalSec, uint16_t bgColor, uint16_t pointerColor, uint16_t hubColor) {
+void drawMinuteHand(float remainingSec, float totalSec, uint16_t bgColor, uint16_t pointerColor) {
   if (totalSec <= 0.0f) {
     return;
   }

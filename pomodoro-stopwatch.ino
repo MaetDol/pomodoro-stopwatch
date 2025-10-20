@@ -52,10 +52,6 @@ void IRAM_ATTR wakeupFromButton() {
   // Intentionally empty; wake-up handled by light sleep configuration.
 }
 
-void wakeDummy() {
-  // empty; used only as wake ISR
-}
-
 void setup() {
   Serial.begin(115200);
   delay(50);

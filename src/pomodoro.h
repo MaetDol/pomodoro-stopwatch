@@ -99,6 +99,7 @@ struct EncoderState {
 };
 
 float easeLinear(float t);
+float easeIn(float t);
 
 using EaseFn = float (*)(float);
 
@@ -322,11 +323,8 @@ extern EncoderState gEncoder;
 extern PomodoroState gState;
 extern DisplayState gDisplay;
 
-float easeIn(float t);
 float easeOut(float t);
 float easeInOut(float t);
-float cubicBezierValue(float t, float p0, float p1, float p2, float p3);
-float cubicBezierEase(float x, float x1, float y1, float x2, float y2);
 
 uint8_t currentMinutes(const PomodoroState &st);
 uint32_t computeElapsedMs(const PomodoroState &st, uint32_t now);
@@ -345,10 +343,10 @@ void goToSleep(PomodoroState &st);
 void renderAll(PomodoroState &st, bool forceBg = false, uint32_t now = UINT32_MAX);
 void drawDialBackground(uint16_t bgColor = COL_BG, bool clearAll = false);
 void drawRemainingWedge(float remainingSec, float totalSec, bool paused, uint16_t bgColor = COL_BG, float baseDegOverride = -1.0f);
-void drawMinuteHand(float remainingSec, float totalSec,
+void drawMinuteHand(float remainingSec,
+                    float totalSec,
                     uint16_t bgColor = COL_BG,
-                    uint16_t pointerColor = COL_RED_DARK,
-                    uint16_t hubColor = COL_RED);
+                    uint16_t pointerColor = COL_RED_DARK);
 void drawBlinkingTip(float remainingSec, float totalSec, bool on, uint16_t bgColor = COL_BG);
 void showCenterText(const String &s, uint8_t textSize, uint16_t color = COL_RED, uint16_t bg = COL_BG);
 void showCenterText(const char *s, uint8_t textSize, uint16_t color = COL_RED, uint16_t bg = COL_BG);
@@ -372,7 +370,6 @@ void drawThickLine(Adafruit_GFX &gfx,
 
 void IRAM_ATTR onEncChange();
 void IRAM_ATTR wakeupFromButton();
-void wakeDummy();
 void configureLightSleepWakeup();
 void tftEnterSleepSeqSoftOnly();
 void tftExitSleepSeqSoftOnly();
